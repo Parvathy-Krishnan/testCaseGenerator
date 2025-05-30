@@ -1,0 +1,103 @@
+body {
+    font-family: "Segoe UI", sans-serif;
+    background: #f4f7fa;
+    margin: 0;
+    padding: 0;
+    color: #333;
+  }
+  
+  .container {
+    max-width: 800px;
+    margin: 50px auto;
+    background: #fff;
+    padding: 30px 40px;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  }
+  
+  h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #222;
+  }
+  
+  .form-group {
+    margin-bottom: 20px;
+  }
+  
+  label {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    color: #444;
+  }
+  
+  textarea, select, input[type="file"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    resize: vertical;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  
+  button {
+    padding: 12px 24px;
+    background-color: #1976d2;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background 0.3s;
+    margin-right: 10px;
+  }
+  
+  button:hover {
+    background-color: #125aa2;
+  }
+  
+  #loader {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #1976d2;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  #result-container {
+    margin-top: 30px;
+  }
+  
+  #result {
+    background: #f0f0f0;
+    padding: 20px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+    font-family: monospace;
+  }
+  
+  .actions {
+    margin-top: 15px;
+  }
+  
+  .actions button {
+    margin-bottom: 8px;
+  }
+  
+  input[type="file"] {
+    padding: 8px;
+    background: #fafafa;
+    border: 1px solid #ccc;
+  }
+  
