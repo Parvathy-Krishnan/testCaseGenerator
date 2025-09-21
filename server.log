@@ -1,0 +1,20 @@
+INFO:     Will watch for changes in these directories: ['/Users/pkrish529/Documents/pk_workspace/testCaseGenerator']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [29357] using StatReload
+INFO:     Started server process [29395]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+Using mock LLM for testing purposes
+OpenAI API client initialized successfully
+>>> REST Assured test for: https://invalid-endpoint-test.com/api
+INFO:     127.0.0.1:60002 - "POST /run-rest-assured HTTP/1.1" 503 Service Unavailable
+>>> REST Assured test for: https://jsonplaceholder.typicode.com/posts/1
+>>> REST Assured test completed: 200
+INFO:     127.0.0.1:60101 - "POST /run-rest-assured HTTP/1.1" 200 OK
+>>> REST Assured test for: https://invalid-endpoint.com/api
+INFO:     127.0.0.1:60103 - "POST /run-rest-assured HTTP/1.1" 503 Service Unavailable
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [29395]
+INFO:     Stopping reloader process [29357]

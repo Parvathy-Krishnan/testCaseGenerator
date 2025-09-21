@@ -45,6 +45,24 @@ If you encounter errors about missing packages, install them individually:
 
 ### 2. Configure Model Providers
 
+#### For OpenAI GPT (recommended):
+1. **Get an OpenAI API Key**:
+   - Visit [OpenAI API Keys](https://platform.openai.com/api-keys)
+   - Create an account or log in
+   - Generate a new API key
+   - Copy the API key (starts with `sk-...`)
+
+2. **Add to .env file**:
+   ```env
+   OPENAI_API_KEY=sk-your-actual-openai-api-key-here
+   ```
+
+3. **Important Security Notes**:
+   - Never commit your `.env` file to version control
+   - Keep your API key secure and don't share it
+   - Monitor your OpenAI usage to avoid unexpected charges
+   - Consider setting usage limits in your OpenAI account
+
 #### For LLaMA (local):
 - Download your LLaMA model file.
 - Set the path in your `.env` file:
@@ -58,6 +76,13 @@ If you encounter errors about missing packages, install them individually:
 	```
 	OPENAI_API_KEY=your-comcast-bearer-token
 	```
+
+#### For Karate Test Execution (via MCP):
+- Deploy the Karate Runner service (a simple Java/Spring Boot app) to your MCP environment.
+- Set the URL for the runner service in your `.env` file:
+  ```
+  KARATE_RUNNER_URL=http://your-karate-runner-app.mcp-apps.com/run-karate
+  ```
 
 ### 3. Start the FastAPI Server
 
@@ -112,3 +137,9 @@ http://localhost:8000/
 ---
 
 For more details, see the source files in the repository.
+mvn spring-boot:run      
+
+ source /Users/pkrish529/Documents/pk_workspace/testCaseGenerator/.venv/bin/activate
+
+ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+ 

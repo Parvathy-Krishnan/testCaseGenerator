@@ -1,141 +1,495 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>BDD Test Case Generator</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
-    <style>
-        body {
-            padding: 2rem;
-            background-color: #f5f7fa;
-        }
-        .loader {
-            display: none;
-            margin: 20px auto;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .btn-group {
-            margin-top: 1rem;
-        }
-        #responseTime {
-            margin-top: 10px;
-            font-style: italic;
-            color: #555;
-        }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karate DSL Test Case Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="/static/styles.css" rel="stylesheet">
+    <link href="/static/spinner.css" rel="stylesheet">
 </head>
 <body>
-<div class="container">
-    <h1 class="mb-4">BDD Test Case Generator</h1>
-
-    <form id="testCaseForm">
-        <div class="mb-3">
-            <label for="requirement" class="form-label">Requirement</label>
-            <textarea class="form-control" id="requirement" name="requirement" rows="4" required></textarea>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Header Banner -->
+            <div class="col-12 mb-4">
+                <div class="header-banner">
+                    <div class="banner-content">
+                        <div class="banner-center-wrapper">
+                            <!-- Icon removed -->
+                            <div class="banner-text">
+                                <div class="banner-title-pane">
+                                    <h1 class="banner-title" id="main-heading">
+                                        Karate DSL Test Case Generator
+                                    </h1>
+                                </div>
+                                <p class="banner-subtitle">Generate comprehensive BDD-style API test cases using Karate DSL framework</p>
+                            </div>
+                        </div>
+                        <!-- Decoration circles removed -->
+                    </div>
+                </div>
+            </div>
         </div>
+        
+        <div class="row">
+            <!-- Left Navigation Pane - Workflow Roadmap -->
+            <div class="col-md-3 col-lg-2 align-self-start" style="margin-top: 0;">
+                <nav class="roadmap-sidebar" aria-label="Workflow roadmap navigation" role="navigation">
+                    <div class="roadmap-header">
+                        <h2 class="roadmap-title">
+                            <i class="bi bi-map me-2 roadmap-icon" aria-hidden="true"></i>
+                            <span class="roadmap-text">Workflow Roadmap</span>
+                        </h2>
+                        <div class="roadmap-subtitle">Follow your progress</div>
+                    </div>
+                    
+                    <div class="roadmap-container" role="list">
+                        <!-- Step 1 -->
+                        <div class="roadmap-step" id="roadmapStep1" role="listitem" 
+                             tabindex="0" aria-describedby="step1-desc">
+                            <div class="step-indicator">
+                                <div class="step-number" aria-label="Step 1">
+                                    <span class="step-text">1</span>
+                                    <i class="bi bi-check-circle-fill step-icon completed-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-x-circle-fill step-icon error-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-clock-fill step-icon active-icon" aria-hidden="true"></i>
+                                </div>
+                                <div class="step-line" aria-hidden="true"></div>
+                            </div>
+                            <div class="step-content">
+                                <h3 class="step-title">Configure Input</h3>
+                                <p class="step-description" id="step1-desc">Enter requirements and API details</p>
+                                <div class="step-status" aria-live="polite">
+                                    <span class="status-text">Not started</span>
+                                </div>
+                            </div>
+                        </div>
 
-        <div class="mb-3">
-            <label for="operation" class="form-label">Operation</label>
-            <select class="form-select" id="operation" name="operation" required>
-                <option value="Positive">Positive</option>
-                <option value="Negative">Negative</option>
-                <option value="Both">Both</option>
-            </select>
+                        <!-- Step 2 -->
+                        <div class="roadmap-step" id="roadmapStep2" role="listitem" 
+                             tabindex="0" aria-describedby="step2-desc">
+                            <div class="step-indicator">
+                                <div class="step-number" aria-label="Step 2">
+                                    <span class="step-text">2</span>
+                                    <i class="bi bi-check-circle-fill step-icon completed-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-x-circle-fill step-icon error-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-clock-fill step-icon active-icon" aria-hidden="true"></i>
+                                </div>
+                                <div class="step-line" aria-hidden="true"></div>
+                            </div>
+                            <div class="step-content">
+                                <h3 class="step-title">Generate Tests</h3>
+                                <p class="step-description" id="step2-desc">Create Karate DSL test cases</p>
+                                <div class="step-status" aria-live="polite">
+                                    <span class="status-text">Not started</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3 -->
+                        <div class="roadmap-step" id="roadmapStep3" role="listitem" 
+                             tabindex="0" aria-describedby="step3-desc">
+                            <div class="step-indicator">
+                                <div class="step-number" aria-label="Step 3">
+                                    <span class="step-text">3</span>
+                                    <i class="bi bi-check-circle-fill step-icon completed-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-x-circle-fill step-icon error-icon" aria-hidden="true"></i>
+                                    <i class="bi bi-clock-fill step-icon active-icon" aria-hidden="true"></i>
+                                </div>
+                            </div>
+                            <div class="step-content">
+                                <h3 class="step-title">Execute & Results</h3>
+                                <p class="step-description" id="step3-desc">Run automation and view results</p>
+                                <div class="step-status" aria-live="polite">
+                                    <span class="status-text">Not started</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col-md-9 col-lg-10 main-content">
+                <main role="main">
+
+        <!-- Section 1: Input Controls and Configuration -->
+        <section class="card shadow-sm mb-4" aria-labelledby="section1-heading">
+            <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h2 class="mb-0 h5" id="section1-heading">
+                    <i class="bi bi-1-circle-fill me-2" aria-hidden="true"></i>
+                    Input Configuration & Controls
+                </h2>
+            </div>
+            <div class="card-body">
+                <form id="testForm" novalidate>
+                    <fieldset>
+                        <legend class="sr-only">Test case generation configuration</legend>
+                        <div class="row">
+                            <!-- Input Method Selection -->
+                            <div class="col-md-12 mb-3">
+                                <fieldset>
+                                    <legend class="form-label fw-bold">Input Method</legend>
+                                    <div class="btn-group w-100" role="group" aria-label="Input method selection">
+                                        <input type="radio" class="btn-check" name="inputMethod" id="textInput" value="text" checked 
+                                               aria-describedby="textInputDesc">
+                                        <label class="btn btn-outline-primary" for="textInput">
+                                            <i class="bi bi-keyboard me-1" aria-hidden="true"></i> Text Input
+                                        </label>
+                                        <input type="radio" class="btn-check" name="inputMethod" id="fileInput" value="file"
+                                               aria-describedby="fileInputDesc">
+                                        <label class="btn btn-outline-primary" for="fileInput">
+                                            <i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i> File Upload
+                                        </label>
+                                        <div id="textInputDesc" class="sr-only">Select to enter requirements as text</div>
+                                        <div id="fileInputDesc" class="sr-only">Select to upload a requirements file</div>
+                                    </div>
+                                </fieldset>
+                            </div>
+                        </div>
+
+                    <!-- Text Input Section -->
+                    <div id="textInputSection">
+                        <div class="mb-3">
+                            <label for="requirement" class="form-label">
+                                <i class="bi bi-file-text me-1" aria-hidden="true"></i> Requirement Description
+                                <span class="text-danger" aria-label="Required field">*</span>
+                            </label>
+                            <textarea class="form-control" id="requirement" name="requirement" rows="4" 
+                                placeholder="Enter your API testing requirements here..."
+                                aria-describedby="requirementHelp"
+                                aria-invalid="false"></textarea>
+                            <div id="requirementHelp" class="form-text">Describe the API functionality you want to test in detail</div>
+                        </div>
+                    </div>
+
+                    <!-- File Upload Section -->
+                    <div id="fileInputSection" style="display: none;">
+                        <div class="mb-3">
+                            <label for="requirementFile" class="form-label">
+                                <i class="bi bi-cloud-upload me-1" aria-hidden="true"></i> Upload Requirement File
+                                <span class="text-danger" aria-label="Required field">*</span>
+                            </label>
+                            <input class="form-control" type="file" id="requirementFile" name="file" 
+                                   accept=".txt,.doc,.docx,.pdf"
+                                   aria-describedby="fileHelp"
+                                   aria-invalid="false">
+                            <div id="fileHelp" class="form-text">Supported formats: .txt, .doc, .docx, .pdf (Max: 5MB)</div>
+                        </div>
+                    </div>
+
+                    <!-- API Configuration -->
+                    <fieldset>
+                        <legend class="form-label fw-bold">API Configuration</legend>
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="apiEndpoint" class="form-label">API Endpoint</label>
+                                <input type="url" class="form-control" id="apiEndpoint" name="apiEndpoint" 
+                                    placeholder="https://api.example.com/endpoint"
+                                    aria-describedby="endpointHelp"
+                                    aria-invalid="false"
+                                    value="https://reqres.in/api/login">
+                                <div id="endpointHelp" class="form-text">The full URL of the API endpoint to test</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="apiMethod" class="form-label">HTTP Method</label>
+                                <select class="form-select" id="apiMethod" name="apiMethod" 
+                                        aria-describedby="methodHelp">
+                                    <option value="GET">GET</option>
+                                    <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option>
+                                    <option value="DELETE">DELETE</option>
+                                    <option value="PATCH">PATCH</option>
+                                </select>
+                                <div id="methodHelp" class="form-text">HTTP method for the API request</div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend class="form-label fw-bold">Authentication (Optional)</legend>
+                        <div class="mb-3">
+                            <label for="authType" class="form-label">Authentication Type</label>
+                            <select class="form-select" id="authType" name="authType" aria-describedby="authTypeHelp">
+                                <option value="none">None</option>
+                                <option value="basic">Basic Auth</option>
+                                <option value="token">Token</option>
+                            </select>
+                            <div id="authTypeHelp" class="form-text">Select authentication type for the API request</div>
+                        </div>
+                        <div id="basicAuthFields" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="username" class="form-label">Username</label>
+                                    <input type="text" class="form-control" id="username" name="username" 
+                                        placeholder="Enter username for authentication"
+                                        aria-describedby="usernameHelp"
+                                        autocomplete="username"
+                                        value="eve.holt@reqres.in">
+                                    <div id="usernameHelp" class="form-text">Leave empty if no authentication required</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="password" name="password" 
+                                        placeholder="Enter password for authentication"
+                                        aria-describedby="passwordHelp"
+                                        autocomplete="current-password"
+                                        value="cityslicka">
+                                    <div id="passwordHelp" class="form-text">Leave empty if no authentication required</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="tokenAuthField" style="display: none;">
+                            <div class="mb-3">
+                                <label for="token" class="form-label">Token</label>
+                                <input type="text" class="form-control" id="token" name="token" 
+                                    placeholder="Enter authentication token"
+                                    aria-describedby="tokenHelp">
+                                <div id="tokenHelp" class="form-text">Paste your bearer or API token here</div>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Payload for POST/PUT/PATCH -->
+                    <div class="mb-3">
+                        <label for="acceptHeader" class="form-label">Accept Header</label>
+                        <input type="text" class="form-control" id="acceptHeader" name="acceptHeader" placeholder="e.g. application/json" aria-describedby="acceptHeaderHelp">
+                        <div id="acceptHeaderHelp" class="form-text">Specify the Accept header for the API request (optional)</div>
+                    </div>
+                    <div class="mb-3" id="payloadSection" style="display: none;">
+                        <label for="payload" class="form-label">Request Payload (JSON)</label>
+                        <textarea class="form-control" id="payload" name="payload" rows="4" 
+                            placeholder='{"key": "value"}'
+                            aria-describedby="payloadHelp"></textarea>
+                        <div id="payloadHelp" class="form-text">JSON format request body for POST/PUT/PATCH requests</div>
+                    </div>
+
+                    <!-- Resource ID for DELETE -->
+                    <div class="mb-3" id="idSection" style="display: none;">
+                        <label for="resourceId" class="form-label">Resource ID</label>
+                        <input type="text" class="form-control" id="resourceId" name="resourceId" 
+                            placeholder="Enter the ID of the resource to delete"
+                            aria-describedby="idHelp">
+                        <div id="idHelp" class="form-text">Unique identifier of the resource to delete</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="operation" class="form-label">Test Case Type</label>
+                            <select class="form-select" id="operation" name="operation" aria-describedby="operationHelp">
+                                <option value="Positive">Positive Test Cases</option>
+                                <option value="Negative">Negative Test Cases</option>
+                                <option value="Both">Both Positive & Negative</option>
+                            </select>
+                            <div id="operationHelp" class="form-text">Type of test scenarios to generate</div>
+                        </div>
+                        <div class="col-md-6 mb-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100" aria-describedby="generateHelp">
+                                <i class="bi bi-play-circle me-2" aria-hidden="true"></i> Generate Karate Test Cases
+                            </button>
+                            <div id="generateHelp" class="sr-only" style="display: block; text-align: center;">Click to generate Karate DSL test cases based on your configuration</div>
+                        </div>
+                    </div>
+                    </fieldset>
+                </form>
+            </div>
+        </section>
+
+        <!-- Section 2: Generated Test Cases Display -->
+        <section class="card shadow-sm mb-4" id="testCasesSection" style="display: none;" aria-labelledby="section2-heading">
+            <div class="card-header bg-success text-white">
+                <h2 class="mb-0 d-flex justify-content-between align-items-center h5" id="section2-heading">
+                    <span>
+                        <i class="bi bi-2-circle-fill me-2" aria-hidden="true"></i>
+                        Generated Karate Test Cases
+                    </span>
+                    <span class="badge bg-light text-dark" id="testCaseCount" aria-live="polite">
+                        <i class="bi bi-list-ol me-1" aria-hidden="true"></i>
+                        <span id="testCaseCountNumber">0</span> Test Cases Generated
+                    </span>
+                </h2>
+            </div>
+            <div class="card-body">
+                <div id="testCasesContent" role="region" aria-label="Generated test cases content">
+                    <!-- Generated test cases will be displayed here -->
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-outline-primary me-2" id="copyTestCasesBtn" 
+                            aria-describedby="copyTestCasesHelp">
+                        <i class="bi bi-clipboard me-1" aria-hidden="true"></i> Copy Test Cases
+                    </button>
+                    <button class="btn btn-outline-success" id="downloadTestCasesBtn"
+                            aria-describedby="downloadTestCasesHelp">
+                        <i class="bi bi-download me-1" aria-hidden="true"></i> Download Feature File
+                    </button>
+                    <div id="copyTestCasesHelp" class="sr-only">Copy the generated test cases to clipboard</div>
+                    <div id="downloadTestCasesHelp" class="sr-only">Download the test cases as a feature file</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Karate Automation & Results -->
+        <section class="card shadow-sm" id="automationSection" style="display: none;" aria-labelledby="section3-heading">
+            <div class="card-header bg-warning text-dark">
+                <h2 class="mb-0 h5" id="section3-heading">
+                    <i class="bi bi-3-circle-fill me-2" aria-hidden="true"></i>
+                    Karate Automation & Results
+                </h2>
+            </div>
+            <div class="card-body">
+                <!-- Automation Controls -->
+                <div class="mb-4">
+                    <p class="text-muted mb-3">Run the generated Karate test cases against your API endpoint</p>
+                    <div class="d-grid gap-2 d-md-flex" role="group" aria-label="Automation controls">
+                        <button class="btn btn-warning btn-lg" id="runKarateBtn" aria-describedby="runKarateHelp">
+                            <i class="bi bi-gear-fill me-2" aria-hidden="true"></i> Run Karate Automation
+                        </button>
+                        <button class="btn btn-success" id="downloadReportBtn" style="display: none;" aria-describedby="downloadReportHelp">
+                            <i class="bi bi-download me-2" aria-hidden="true"></i> Download Report
+                        </button>
+                        <button class="btn btn-outline-secondary" id="clearResultsBtn" aria-describedby="clearResultsHelp">
+                            <i class="bi bi-trash me-2" aria-hidden="true"></i> Clear Results
+                        </button>
+                        <button class="btn btn-outline-primary" id="downloadScriptBtn" aria-describedby="downloadScriptHelp">
+                            <i class="bi bi-download me-2" aria-hidden="true"></i> Download Scripts
+                        </button>
+                        <button class="btn btn-outline-info" id="copyAllScriptsBtn" aria-describedby="copyAllScriptsHelp">
+                            <i class="bi bi-clipboard me-2" aria-hidden="true"></i> Copy All Scripts
+                        </button>
+                        <div id="runKarateHelp" class="sr-only">Execute the Karate automation tests</div>
+                        <div id="clearResultsHelp" class="sr-only">Clear all test results</div>
+                        <div id="downloadScriptHelp" class="sr-only">Download all test scripts</div>
+                        <div id="downloadReportHelp" class="sr-only">Download the execution report</div>
+                        <div id="copyAllScriptsHelp" class="sr-only">Copy all scripts to clipboard</div>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div id="resultsContainer" style="display: none;" role="region" aria-labelledby="results-heading">
+                    <hr class="my-4">
+                    <h3 class="text-info mb-3 h6" id="results-heading">
+                        <i class="bi bi-bar-chart-fill me-2" aria-hidden="true"></i>
+                        Execution Results
+                    </h3>
+                    
+                    <!-- Test Summary -->
+                    <div id="testSummary" class="row text-center mb-4" role="region" aria-label="Test execution summary">
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 text-primary mb-1" id="totalTests" aria-label="Total tests">0</div>
+                                <div class="small text-muted">Total Tests</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 text-success mb-1" id="passedTests" aria-label="Passed tests">0</div>
+                                <div class="small text-muted">Passed</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 text-danger mb-1" id="failedTests" aria-label="Failed tests">0</div>
+                                <div class="small text-muted">Failed</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="p-3 border rounded">
+                                <div class="h4 text-info mb-1" id="successRate" aria-label="Success rate">0%</div>
+                                <div class="small text-muted">Success Rate</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Test Results Table -->
+                    <div class="table-responsive mb-4">
+                        <table class="table table-hover" aria-label="Test execution results">
+                            <caption class="sr-only">Test execution results showing scenario, status, response codes, and actions</caption>
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col">Test Scenario</th>
+                                    <th scope="col">Status</th>
+                                    <th scope="col">Actual Code</th>
+                                    <th scope="col">Expected Code</th>
+                                    <th scope="col">Details</th>
+                                    <th scope="col">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="testResultsBody">
+                                <!-- Test results will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Generated Feature File -->
+                    <div class="mb-3">
+                        <h4 class="h6">Generated Karate Feature File:</h4>
+                        <div class="position-relative">
+                            <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-2" 
+                                    id="copyFeatureBtn" aria-label="Copy feature file to clipboard">
+                                <i class="bi bi-clipboard" aria-hidden="true"></i> Copy
+                            </button>
+                            <pre id="featureFileContent" class="bg-light p-3 rounded border" 
+                                 style="max-height: 400px; overflow-y: auto;" 
+                                 role="region" aria-label="Feature file content" tabindex="0"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading Spinner -->
+        <div id="loadingSpinner" class="text-center py-5" style="display: none;" 
+             role="status" aria-live="polite" aria-label="Loading">
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" aria-hidden="true"></div>
+            <div class="mt-3">
+                <h2 class="text-muted h5">Processing...</h2>
+                <p id="loadingMessage" class="text-muted">Please wait...</p>
+            </div>
         </div>
+                </main> <!-- End main content -->
+            </div> <!-- End main content column -->
+        </div> <!-- End row -->
+    </div> <!-- End container-fluid -->
 
-        <div class="mb-3">
-            <label for="file" class="form-label">Upload Requirement File (optional)</label>
-            <input class="form-control" type="file" id="file" name="file" />
+    <!-- Response Modal -->
+    <div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalTitle" 
+         aria-describedby="responseModalContent" role="dialog">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h5" id="responseModalTitle">API Response</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" 
+                            aria-label="Close modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="responseModalContent" role="region" aria-live="polite">
+                        <!-- Response content will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-primary" id="copyResponseBtn"
+                            aria-describedby="copyResponseHelp">
+                        <i class="bi bi-clipboard" aria-hidden="true"></i> Copy Response
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <div id="copyResponseHelp" class="sr-only">Copy the API response to clipboard</div>
+                </div>
+            </div>
         </div>
-
-        <button type="submit" class="btn btn-primary">Generate Test Cases</button>
-    </form>
-
-    <div class="loader" id="loader"></div>
-
-    <div id="result" class="mt-4" style="white-space: pre-wrap;"></div>
-    <div id="responseTime"></div>
-
-    <div class="btn-group" role="group" aria-label="Actions" id="actionButtons" style="display: none;">
-        <button class="btn btn-success" id="copyBtn">Copy</button>
-        <button class="btn btn-warning" id="downloadCsvBtn">Download CSV</button>
-        <button class="btn btn-info" id="downloadExcelBtn">Download Excel</button>
     </div>
-</div>
 
-<script>
-    const form = document.getElementById("testCaseForm");
-    const loader = document.getElementById("loader");
-    const resultDiv = document.getElementById("result");
-    const actionButtons = document.getElementById("actionButtons");
-    const responseTimeDiv = document.getElementById("responseTime");
+    <!-- Alert Container -->
+    <div id="alertContainer" class="position-fixed top-0 end-0 p-3" 
+         style="z-index: 1050;" role="alert" aria-live="assertive"></div>
 
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        resultDiv.textContent = "";
-        loader.style.display = "block";
-        actionButtons.style.display = "none";
-        responseTimeDiv.textContent = "";
+    <!-- Screen Reader Only Content -->
+    <div class="sr-only">
+        <div id="sr-announcements" aria-live="polite" aria-atomic="true"></div>
+    </div>
 
-        const formData = new FormData(form);
-
-        try {
-            const startTime = performance.now();
-
-            const response = await fetch("/generate-test-cases", {
-                method: "POST",
-                body: formData
-            });
-
-            const endTime = performance.now();
-
-            const data = await response.json();
-            loader.style.display = "none";
-
-            if (data.output) {
-                resultDiv.textContent = data.output;
-                actionButtons.style.display = "block";
-
-                const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(2);
-                responseTimeDiv.textContent = `Response time: ${elapsedSeconds} seconds`;
-            } else {
-                resultDiv.textContent = "❌ Error: " + data.error;
-            }
-        } catch (error) {
-            loader.style.display = "none";
-            resultDiv.textContent = "❌ Request failed: " + error;
-        }
-    });
-
-    document.getElementById("copyBtn").addEventListener("click", () => {
-        navigator.clipboard.writeText(resultDiv.textContent);
-        alert("Copied to clipboard!");
-    });
-
-    document.getElementById("downloadCsvBtn").addEventListener("click", () => {
-        const blob = new Blob([resultDiv.textContent], { type: "text/csv;charset=utf-8;" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "test_cases.csv";
-        link.click();
-    });
-
-    document.getElementById("downloadExcelBtn").addEventListener("click", () => {
-        const blob = new Blob([resultDiv.textContent], { type: "application/vnd.ms-excel" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "test_cases.xls";
-        link.click();
-    });
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/script_new.js?v=9"></script>
 </body>
 </html>
