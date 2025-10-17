@@ -141,41 +141,20 @@
     cursor: pointer;
     transition: all 0.3s ease;
     border: 2px solid #dee2e6 !important;
-    background: #ffffff !important;
-    color: #212529 !important;
-}
-
-.filter-tile .text-primary {
-    color: #0d6efd !important;
-}
-
-.filter-tile .text-success {
-    color: #198754 !important;
-}
-
-.filter-tile .text-danger {
-    color: #dc3545 !important;
-}
-
-.filter-tile .text-info {
-    color: #0dcaf0 !important;
-}
-
-.filter-tile .text-muted {
-    color: #6c757d !important;
+    background: #ffffff;
 }
 
 .filter-tile:hover {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-color: #0d6efd !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .filter-tile.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-color: #667eea !important;
-    color: white !important;
+    color: white;
     transform: translateY(-1px);
     box-shadow: 0 6px 12px rgba(102, 126, 234, 0.3);
 }
@@ -185,13 +164,6 @@
 .filter-tile.active .text-danger,
 .filter-tile.active .text-info,
 .filter-tile.active .text-muted {
-    color: white !important;
-}
-
-.filter-tile.active .h4,
-.filter-tile.active .small,
-.filter-tile.active div,
-.filter-tile.active * {
     color: white !important;
 }
 
@@ -587,18 +559,13 @@ body {
 }
 
 .status-text {
-    font-weight: 700;
-    font-size: 0.7rem;
+    font-weight: 600;
+    font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
-    text-shadow: none;
+    letter-spacing: 0.5px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
     position: relative;
     z-index: 2;
-    color: #ffffff !important;
-    background: rgba(0, 0, 0, 0.7);
-    padding: 2px 6px;
-    border-radius: 3px;
-    display: inline-block;
 }
 
 /* Enhanced step states with better colors */
@@ -612,10 +579,8 @@ body {
 }
 
 .roadmap-step.active .status-text {
-    color: #000000 !important;
-    background: #ffd700;
-    text-shadow: none;
-    border: 1px solid #e6c200;
+    color: #ffd700;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
 }
 
 .roadmap-step.completed .step-title {
@@ -628,10 +593,8 @@ body {
 }
 
 .roadmap-step.completed .status-text {
-    color: #ffffff !important;
-    background: #38ef7d;
-    text-shadow: none;
-    border: 1px solid #2dd365;
+    color: #38ef7d;
+    text-shadow: 0 0 5px rgba(56, 239, 125, 0.5);
 }
 
 .roadmap-step.error .step-title {
@@ -644,10 +607,8 @@ body {
 }
 
 .roadmap-step.error .status-text {
-    color: #ffffff !important;
-    background: #ff6b6b;
-    text-shadow: none;
-    border: 1px solid #ff5252;
+    color: #ff6b6b;
+    text-shadow: 0 0 5px rgba(255, 107, 107, 0.5);
 }
 
 /* Animations */
@@ -774,14 +735,14 @@ textarea:focus {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.8) !important;
-    color: #333333 !important;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
     font-size: 1rem;
-    border: 2px solid rgba(255, 255, 255, 0.9) !important;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     transition: all 0.3s ease;
     z-index: 2;
     position: relative;
@@ -838,13 +799,15 @@ textarea:focus {
     font-size: 0.75rem;
 }
 
-/* Status text styling moved to earlier section - this duplicate removed */
+.status-text {
+    color: rgba(255, 255, 255, 0.6);
+}
 
 /* Roadmap Step States with Icons */
 .roadmap-step.active .step-number {
-    background: #ffc107 !important;
-    color: #000 !important;
-    border-color: #ffc107 !important;
+    background: #ffc107;
+    color: #000;
+    border-color: #ffc107;
     animation: pulse 2s infinite;
 }
 
@@ -862,16 +825,12 @@ textarea:focus {
 }
 
 .roadmap-step.active .status-text {
-    color: #000000 !important;
-    background: #ffd700;
-    text-shadow: none;
-    border: 1px solid #e6c200;
+    color: #ffc107;
 }
 
 .roadmap-step.completed .step-number {
-    background: #198754 !important;
-    border-color: #198754 !important;
-    color: white !important;
+    background: #198754;
+    border-color: #198754;
 }
 
 .roadmap-step.completed .step-text {
@@ -888,16 +847,12 @@ textarea:focus {
 }
 
 .roadmap-step.completed .status-text {
-    color: #ffffff !important;
-    background: #38ef7d;
-    text-shadow: none;
-    border: 1px solid #2dd365;
+    color: #198754;
 }
 
 .roadmap-step.error .step-number {
-    background: #dc3545 !important;
-    border-color: #dc3545 !important;
-    color: white !important;
+    background: #dc3545;
+    border-color: #dc3545;
     animation: shake 0.5s ease-in-out;
 }
 
@@ -911,10 +866,7 @@ textarea:focus {
 }
 
 .roadmap-step.error .status-text {
-    color: #ffffff !important;
-    background: #ff6b6b;
-    text-shadow: none;
-    border: 1px solid #ff5252;
+    color: #dc3545;
 }
 
 /* Animations */
@@ -1483,14 +1435,12 @@ textarea:focus {
     
     .step-number {
         border-width: 3px;
-        background: rgba(255, 255, 255, 0.9) !important;
-        color: #333333 !important;
     }
     
     .roadmap-step.active .step-number {
-        background: #ffff00 !important;
-        color: #000 !important;
-        border-color: #000 !important;
+        background: #ffff00;
+        color: #000;
+        border-color: #000;
     }
 }
 

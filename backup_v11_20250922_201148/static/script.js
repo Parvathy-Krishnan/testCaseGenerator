@@ -8,10 +8,6 @@ class TestCaseGenerator {
         this.totalTestCases = 0;
         this.currentData = null;
         
-        // Task tracking for cancellation
-        this.currentTaskId = null;
-        this.isProcessing = false;
-        
         this.initializeEventListeners();
         this.initializeInputMethodToggle();
         this.checkAPIStatus(); // Check API status on initialization
@@ -63,9 +59,6 @@ class TestCaseGenerator {
         
         // Automation script execution
         document.getElementById('runAutomationBtn').addEventListener('click', () => this.runAutomationScript());
-        
-        // Stop button for cancelling active tasks
-        document.getElementById('stopBtn').addEventListener('click', () => this.cancelCurrentTask());
         
         // Copy test class button
         document.getElementById('copyTestClassBtn').addEventListener('click', () => this.copyTestClass());
@@ -324,9 +317,7 @@ class TestCaseGenerator {
             return;
         }
 
-        this.isProcessing = true;
         this.showLoader(true);
-        this.showStopButton(true);
         
         const formData = new FormData(document.getElementById('testCaseForm'));
         const startTime = performance.now();
@@ -340,16 +331,7 @@ class TestCaseGenerator {
             const endTime = performance.now();
             const data = await response.json();
 
-            // Store task ID for potential cancellation
-            if (data.task_id) {
-                this.currentTaskId = data.task_id;
-            }
-
-            if (response.status === 499) {
-                // Task was cancelled
-                this.showError('Test case generation was cancelled');
-                this.updateStatusInfo(endTime - startTime, false);
-            } else if (data.output) {
+            if (data.output) {
                 this.clearResponse();
                 this.processTestCaseData(data.output);
                 this.updateStatusInfo(endTime - startTime, true);
@@ -359,17 +341,10 @@ class TestCaseGenerator {
                 this.updateStatusInfo(endTime - startTime, false);
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                this.showError('Test case generation was cancelled');
-            } else {
-                this.showError(`Request failed: ${error.message}`);
-            }
+            this.showError(`Request failed: ${error.message}`);
             this.updateStatusInfo(0, false);
         } finally {
-            this.isProcessing = false;
-            this.currentTaskId = null;
             this.showLoader(false);
-            this.showStopButton(false);
         }
     }
 
@@ -416,9 +391,9 @@ class TestCaseGenerator {
 
         for (let line of lines) {
             const trimmedLine = line.trim();
-            // A new test case can be identified by lines starting with 'Test Case' or 'Scenario' (with or without a colon).
-            // This regex handles 'Scenario:', 'Scenario Outline:', 'Scenario: Some name', and 'Scenario outDeleteTestcaseAPI...'.
-            if (/^Scenario/i.test(trimmedLine) || /^Test Case/i.test(trimmedLine)) {
+            // A new test case can be identified by lines starting with 'Test Case' or 'Scenario'.
+            // This covers 'Scenario:', 'Scenario Outline:', and 'Scenario: Some name'.
+            if (trimmedLine.startsWith('Test Case') || trimmedLine.startsWith('Scenario')) {
                 // If we have content in currentTestCase and we've already found the first scenario,
                 // push the completed test case.
                 if (foundFirstScenario && currentTestCase.trim()) {
@@ -519,51 +494,6 @@ class TestCaseGenerator {
             resultsContainer.style.display = this.testCases.length > 0 ? 'block' : 'none';
             emptyState.style.display = this.testCases.length > 0 ? 'none' : 'block';
         }
-    }
-
-    showStopButton(show) {
-        const stopBtn = document.getElementById('stopBtn');
-        if (stopBtn) {
-            stopBtn.style.display = show ? 'inline-block' : 'none';
-        }
-    }
-
-    async cancelCurrentTask() {
-        if (!this.currentTaskId || !this.isProcessing) {
-            console.log('No active task to cancel');
-            return;
-        }
-
-        console.log(`🛑 Cancelling task: ${this.currentTaskId}`);
-        
-        try {
-            const formData = new FormData();
-            formData.append('task_id', this.currentTaskId);
-            
-            const response = await fetch('/cancel-task', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                console.log(`✅ Task ${this.currentTaskId} cancelled successfully`);
-                this.showAlert('Task cancelled successfully', 'info');
-            } else {
-                console.warn(`⚠️ Failed to cancel task: ${data.message}`);
-                this.showAlert(`Failed to cancel task: ${data.message}`, 'warning');
-            }
-        } catch (error) {
-            console.error('❌ Error cancelling task:', error);
-            this.showAlert(`Error cancelling task: ${error.message}`, 'error');
-        }
-        
-        // Reset task tracking state
-        this.isProcessing = false;
-        this.currentTaskId = null;
-        this.showLoader(false);
-        this.showStopButton(false);
     }
 
     showResultsContainer() {
@@ -797,9 +727,7 @@ Scenario: Test ${method} Request
         }
 
         try {
-            this.isProcessing = true;
             this.showLoader(true);
-            this.showStopButton(true);
             document.getElementById('loader').querySelector('div:last-child').textContent = 'Running Karate tests...';
             
             console.log('📡 Sending automation request to backend...');
@@ -815,29 +743,7 @@ Scenario: Test ${method} Request
             const data = await response.json();
             console.log('📄 Response data:', data);
 
-            // Store task ID for potential cancellation
-            if (data.task_id) {
-                this.currentTaskId = data.task_id;
-            }
-
-            if (response.status === 499) {
-                // Task was cancelled
-                console.log('⏹️ Automation execution was cancelled');
-                this.showError('Automation execution was cancelled');
-                if (data.partial_results && data.partial_results.length > 0) {
-                    // Show partial results if any tests completed before cancellation
-                    this.displayAutomationResults({
-                        summary: { 
-                            total: data.partial_results.length, 
-                            passed: data.partial_results.filter(r => r.status === 'PASSED').length,
-                            failed: data.partial_results.filter(r => r.status === 'FAILED').length,
-                            success_rate: `${((data.partial_results.filter(r => r.status === 'PASSED').length / data.partial_results.length) * 100).toFixed(1)}%`
-                        },
-                        testResults: data.partial_results,
-                        cancelled: true
-                    });
-                }
-            } else if (response.ok) {
+            if (response.ok) {
                 console.log('✅ Automation request successful');
                 console.log(`🎯 Test Summary: ${data.summary?.passed || 0}/${data.summary?.total || 0} tests passed`);
                 console.log('📝 Individual test results:', data.testResults);
@@ -848,16 +754,9 @@ Scenario: Test ${method} Request
             }
         } catch (error) {
             console.error('🔥 Automation execution error:', error);
-            if (error.name === 'AbortError') {
-                this.showError('Automation execution was cancelled');
-            } else {
-                this.showError(`Failed to run Karate automation script: ${error.message}`);
-            }
+            this.showError(`Failed to run Karate automation script: ${error.message}`);
         } finally {
-            this.isProcessing = false;
-            this.currentTaskId = null;
             this.showLoader(false);
-            this.showStopButton(false);
             document.getElementById('loader').querySelector('div:last-child').textContent = 'Generating test cases...';
             console.groupEnd();
         }

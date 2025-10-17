@@ -1,26 +1,16 @@
 class KarateTestGenerator {
-    // Show/hide auth fields based on selection
-    toggleAuthFields() {
-        const authType = document.getElementById('authType');
-        const tokenSection = document.getElementById('tokenSection');
-        
-        if (!authType || !tokenSection) return;
-        
-        const authValue = authType.value;
-        
-        // Show token section for token-based auth types
-        if (['bearer', 'oauth', 'apikey', 'jwt'].includes(authValue)) {
-            tokenSection.style.display = 'block';
-        } else {
-            tokenSection.style.display = 'none';
-        }
-    }
-    
     constructor() {
+        this.apiStatus = null;
+        
         // Add safety checks for DOM elements
         const authTypeEl = document.getElementById('authType');
         if (authTypeEl) {
             authTypeEl.addEventListener('change', () => this.toggleAuthFields());
+        }
+        
+        const methodEl = document.getElementById('apiMethod');
+        if (methodEl) {
+            methodEl.addEventListener('change', () => this.handleMethodChange());
         }
         
         const testFormEl = document.getElementById('testForm');
@@ -28,16 +18,16 @@ class KarateTestGenerator {
             testFormEl.addEventListener('submit', (e) => this.generateTestCases(e));
         }
         
+        // Initialize field visibility on page load
+        this.toggleAuthFields();
+        this.handleMethodChange();
+        
         // Input method toggle
         document.querySelectorAll('input[name="inputMethod"]').forEach(radio => {
             radio.addEventListener('change', () => this.toggleInputMethod());
         });
         
-        const apiMethodEl = document.getElementById('apiMethod');
-        if (apiMethodEl) {
-            apiMethodEl.addEventListener('change', () => this.handleMethodChange());
-        }
-        
+        // Additional event listeners with safety checks
         const runKarateBtnEl = document.getElementById('runKarateBtn');
         if (runKarateBtnEl) {
             runKarateBtnEl.addEventListener('click', () => this.runKarateAutomation());
@@ -94,10 +84,111 @@ class KarateTestGenerator {
         this.initializeRoadmap();
         // Add keyboard navigation for roadmap
         this.initializeKeyboardNavigation();
-        this.handleMethodChange();
         this.currentResults = null;
+
+        // Check API status on page load
+        this.checkApiStatus();
+    }    async checkApiStatus() {
+        try {
+            console.log('Checking API status...');
+            const response = await fetch('/api-status');
+            this.apiStatus = await response.json();
+            this.displayApiStatusNotification();
+        } catch (error) {
+            console.error('Failed to check API status:', error);
+            this.showAlert('Unable to check API status. Using local generation.', 'warning');
+        }
     }
-    
+
+    displayApiStatusNotification() {
+        if (!this.apiStatus) return;
+
+        const { openai, primary_method } = this.apiStatus;
+        
+        // Create or update status notification
+        let statusElement = document.getElementById('apiStatusNotification');
+        if (!statusElement) {
+            statusElement = document.createElement('div');
+            statusElement.id = 'apiStatusNotification';
+            statusElement.className = 'alert mb-3';
+            
+            // Insert after the header banner
+            const headerBanner = document.querySelector('.header-banner');
+            if (headerBanner) {
+                headerBanner.insertAdjacentElement('afterend', statusElement);
+            }
+        }
+
+        let alertClass = 'alert-info';
+        let icon = 'bi-info-circle';
+        let message = '';
+
+        if (openai.status === 'active') {
+            alertClass = 'alert-warning';
+            icon = 'bi-exclamation-triangle';
+            
+            // Check for token warning in the response
+            if (this.apiStatus.token_warning) {
+                message = `<strong>⚠️ Token Status Warning:</strong> ${this.apiStatus.token_warning}<br>
+                          <small>OpenAI API configured but may be expired. System automatically using reliable backup: ${primary_method}</small>`;
+            } else {
+                message = `<strong>✅ AI Generation Ready:</strong> Using ${primary_method} for enhanced test case generation.`;
+                alertClass = 'alert-success';
+                icon = 'bi-check-circle';
+            }
+        } else if (openai.status === 'inactive') {
+            alertClass = 'alert-warning';
+            icon = 'bi-exclamation-triangle';
+            message = `<strong>⚠️ OpenAI API Inactive:</strong> ${openai.message}<br>
+                      <small>Using ${primary_method} with comprehensive requirement analysis for reliable test generation.</small>`;
+        } else if (openai.status === 'quota_exceeded') {
+            alertClass = 'alert-warning';
+            icon = 'bi-exclamation-triangle';
+            message = `<strong>⚠️ OpenAI Quota Exceeded:</strong> ${openai.message}<br>
+                      <small>Using ${primary_method} with comprehensive requirement analysis.</small>`;
+        } else if (openai.status === 'error') {
+            alertClass = 'alert-warning';
+            icon = 'bi-exclamation-triangle';
+            message = `<strong>⚠️ OpenAI API Error:</strong> ${openai.message}<br>
+                      <small>Using ${primary_method} with comprehensive requirement analysis.</small>`;
+        } else {
+            alertClass = 'alert-info';
+            icon = 'bi-info-circle';
+            message = `<strong>ℹ️ Local Generation Active:</strong> Using ${primary_method} with comprehensive requirement analysis.`;
+        }
+
+        statusElement.className = `alert ${alertClass} mb-3`;
+        statusElement.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="bi ${icon} me-2"></i>
+                <div>${message}</div>
+            </div>
+        `;
+    }
+
+    // Show/hide auth fields based on selection
+    toggleAuthFields() {
+        const authType = document.getElementById('authType');
+        const tokenSection = document.getElementById('tokenSection');
+        const basicAuthSection = document.getElementById('basicAuthSection');
+        
+        if (!authType || !tokenSection || !basicAuthSection) return;
+        
+        const authValue = authType.value;
+        
+        // Hide all sections first
+        tokenSection.style.display = 'none';
+        basicAuthSection.style.display = 'none';
+        
+        // Show appropriate section based on auth type
+        if (authValue === 'basic') {
+            basicAuthSection.style.display = 'block';
+        } else if (authValue === 'bearer') { // Base64 option
+            tokenSection.style.display = 'block';
+        }
+        // For 'none' and 'oauth', show neither section
+    }
+
     initializeKeyboardNavigation() {
         // Handle keyboard navigation for roadmap steps
         const roadmapSteps = document.querySelectorAll('.roadmap-step');
@@ -165,27 +256,41 @@ class KarateTestGenerator {
             textSection.style.display = 'none';
             fileSection.style.display = 'block';
         }
+        
+        // Progress step 1 when user selects an input method
+        this.updateRoadmapStep(1, 'active');
+        this.announceToScreenReader(`Step 1 activated: ${textInput ? 'Text input' : 'File upload'} method selected.`);
     }
 
     handleMethodChange() {
         const method = document.getElementById('apiMethod').value;
         const payloadSection = document.getElementById('payloadSection');
         const idSection = document.getElementById('idSection');
+        const customHeadersSection = document.getElementById('customHeadersSection');
+        const payloadLabel = document.getElementById('payloadLabel');
 
-        // Show payload section for POST, PUT, PATCH
+        // Hide all sections first
+        payloadSection.style.display = 'none';
+        idSection.style.display = 'none';
+        customHeadersSection.style.display = 'none';
+
+        // Show appropriate section based on method
         if (['POST', 'PUT', 'PATCH'].includes(method)) {
             payloadSection.style.display = 'block';
-            idSection.style.display = 'none';
+            // Update label for POST/PUT methods
+            if (payloadLabel) {
+                payloadLabel.textContent = method === 'POST' ? 'POST Payload (JSON)' : 
+                                         method === 'PUT' ? 'PUT Payload (JSON)' : 
+                                         'PATCH Payload (JSON)';
+            }
         } 
         // Show ID section for DELETE
         else if (method === 'DELETE') {
-            payloadSection.style.display = 'none';
             idSection.style.display = 'block';
         } 
-        // Hide both for GET
-        else {
-            payloadSection.style.display = 'none';
-            idSection.style.display = 'none';
+        // Show custom headers for GET (and other methods that don't need payload/ID)
+        else if (method === 'GET') {
+            customHeadersSection.style.display = 'block';
         }
     }
 
@@ -214,9 +319,13 @@ class KarateTestGenerator {
             }
         }
 
-    // Update roadmap
-    this.updateRoadmapStep(1, 'completed');
-    this.updateRoadmapStep(2, 'active');
+        // Check API status before generation
+        console.log('Checking API status before generation...');
+        await this.checkApiStatus();
+
+        // Update roadmap
+        this.updateRoadmapStep(1, 'completed');
+        this.updateRoadmapStep(2, 'active');
 
     this.showLoading('Analyzing requirements and generating test cases...', 'Generating Test Cases');
     // ...existing code...
@@ -301,8 +410,15 @@ class KarateTestGenerator {
     }
 
     displayTestCases(testCases) {
-        // Count the number of test scenarios
-        const scenarioCount = (testCases.match(/Scenario:/g) || []).length;
+        // Count the number of test scenarios - handle both "Scenario:" and "Scenario N:" patterns
+        const scenarioMatches = testCases.match(/Scenario(\s+\d+)?:/g) || [];
+        const scenarioCount = scenarioMatches.length;
+        
+        console.log('Test case counter debug:', {
+            scenarioMatches: scenarioMatches,
+            scenarioCount: scenarioCount,
+            testCasesLength: testCases.length
+        });
 
         // Update test case count
         document.getElementById('testCaseCountNumber').textContent = scenarioCount;
@@ -353,14 +469,37 @@ class KarateTestGenerator {
             if (authType === 'basic') {
                 requestData.username = document.getElementById('username').value || '';
                 requestData.password = document.getElementById('password').value || '';
-            } else if (['bearer', 'oauth', 'apikey', 'jwt'].includes(authType)) {
+            } else if (authType === 'token') {
                 requestData.token = document.getElementById('token').value || '';
+            }
+
+            // CRITICAL FIX: Include the generated test cases from Section 2
+            if (this.currentTestCases) {
+                console.log('Including generated test cases from Section 2:', this.currentTestCases.substring(0, 200) + '...');
+                requestData.generatedTestCases = [this.currentTestCases]; // Pass as array of raw Karate content
+            } else {
+                console.log('No generated test cases found - will use default scenarios');
+                // Warn user that they should generate test cases first for better results
+                const shouldContinue = confirm(
+                    'No test cases have been generated yet. For best results:\n\n' +
+                    '1. Fill in the requirement details in Section 1\n' +
+                    '2. Click "Generate Test Cases" to create comprehensive scenarios\n' +
+                    '3. Then run automation to execute those scenarios\n\n' +
+                    'Continue with basic default scenarios instead?'
+                );
+                if (!shouldContinue) {
+                    this.hideLoading();
+                    return;
+                }
             }
 
             // Store form data for later use in request display
             this.lastFormData = { ...requestData };
 
-            console.log('Sending automation request:', requestData);
+            console.log('Sending automation request with generated test cases:', {
+                ...requestData,
+                generatedTestCases: requestData.generatedTestCases ? '[INCLUDED]' : 'Not included'
+            });
 
             const response = await fetch('/run-automation-script', {
                 method: 'POST',
@@ -551,7 +690,7 @@ class KarateTestGenerator {
             method: document.getElementById('apiMethod').value,
             username: authType === 'basic' ? (document.getElementById('username').value || '') : '',
             password: authType === 'basic' ? (document.getElementById('password').value || '') : '',
-            token: ['bearer', 'oauth', 'apikey', 'jwt'].includes(authType) ? (document.getElementById('token').value || '') : '',
+            token: authType === 'token' ? (document.getElementById('token').value || '') : '',
             body: document.getElementById('payload').value || '',
             resourceId: document.getElementById('resourceId').value || '',
             acceptHeader: document.getElementById('acceptHeader').value || ''
@@ -590,7 +729,7 @@ class KarateTestGenerator {
             requestInfo = `Method: ${formData?.apiMethod || 'GET'}
 Endpoint: ${formData?.apiEndpoint || 'Not available'}
 Accept Header: ${formData?.acceptHeader || 'Not specified'}
-Authentication: ${formData?.token ? 'Token' : (formData?.username ? 'Basic' : 'None')}
+Authentication: ${formData?.token ? 'Bearer Token' : (formData?.username ? 'Basic Auth' : 'None')}
 Request Body: ${formData?.body || 'None'}`;
             responseInfo = test.response || 'No response available';
         }
@@ -622,16 +761,7 @@ Request Body: ${formData?.body || 'None'}`;
                         ${test.details || 'No description available'}
                     </div>
                 </div>
-                <div class="mb-3">
-                    <strong class="text-success d-flex align-items-center">
-                        <i class="bi bi-check-circle me-2"></i>Expected Result:
-                    </strong>
-                    <div class="mt-2 d-flex align-items-center">
-                        <span class="badge ${this.getStatusCodeClass(test.statusCode)} me-2 fs-6">${test.statusCode}</span>
-                        <span class="badge ${test.status === 'PASSED' ? 'bg-success' : 'bg-danger'} me-2">${test.status}</span>
-                        <small class="text-muted">Status: ${test.statusCode} | Result: ${test.status}</small>
-                    </div>
-                </div>
+
                 <div class="mb-3">
                     <strong class="text-warning d-flex align-items-center">
                         <i class="bi bi-code-slash me-2"></i>Generated Karate Test Script:
@@ -718,25 +848,55 @@ Request Body: ${formData?.body || 'None'}`;
         if (responseModalContent) {
             responseModalContent.innerHTML = `
                 <div class="row mb-3">
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <strong class="text-success d-flex align-items-center">
-                            <i class="bi bi-check-circle me-2"></i>Response Code:
+                            <i class="bi bi-check-circle me-2"></i>API Response Analysis:
                         </strong>
-                        <div class="mt-2 p-3 bg-success bg-opacity-10 rounded border border-success text-center">
-                            <span class="badge ${this.getStatusCodeClass(test.statusCode)} fs-4 me-2">${test.statusCode}</span>
-                            <div class="mt-1">
-                                <small class="text-muted">${this.getStatusCodeDescription(test.statusCode)}</small>
+                        <div class="mt-2">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-primary bg-opacity-10 rounded border border-primary text-center">
+                                        <strong class="text-primary">Actual Response</strong>
+                                        <div class="mt-2">
+                                            <span class="badge ${this.getStatusCodeClass(test.statusCode)} fs-4 me-2">${test.statusCode}</span>
+                                        </div>
+                                        <small class="text-muted">${this.getStatusCodeDescription(test.statusCode)}</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="p-3 bg-info bg-opacity-10 rounded border border-info text-center">
+                                        <strong class="text-info">Expected Code</strong>
+                                        <div class="mt-2">
+                                            <span class="badge ${this.getStatusCodeClass(this.getExpectedStatusCode(test.scenario))} fs-4">${this.getExpectedStatusCode(test.scenario)}</span>
+                                        </div>
+                                        <small class="text-muted">${this.getStatusCodeDescription(this.getExpectedStatusCode(test.scenario))}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-center mt-2">
+                                <span class="badge ${test.statusCode == this.getExpectedStatusCode(test.scenario) ? 'bg-success' : 'bg-danger'} fs-5">
+                                    ${test.statusCode == this.getExpectedStatusCode(test.scenario) ? '✓ EXACT MATCH' : '✗ CODE MISMATCH'}
+                                </span>
+                                <div class="mt-1">
+                                    <small class="text-muted">
+                                        ${test.statusCode == this.getExpectedStatusCode(test.scenario) ? 
+                                          `API returned expected ${this.getExpectedStatusCode(test.scenario)} response code` : 
+                                          `Expected ${this.getExpectedStatusCode(test.scenario)}, but got ${test.statusCode}`}
+                                    </small>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-12">
                         <strong class="text-success d-flex align-items-center">
-                            <i class="bi bi-clipboard-check me-2"></i>Test Result:
+                            <i class="bi bi-clipboard-check me-2"></i>Test Execution Result:
                         </strong>
                         <div class="mt-2 p-3 bg-light rounded border text-center">
                             <span class="badge ${test.status === 'PASSED' ? 'bg-success' : 'bg-danger'} fs-5">${test.status}</span>
                             <div class="mt-1">
-                                <small class="text-muted">${test.justification || (test.status === 'PASSED' ? 'Test executed successfully' : 'Test failed - check details')}</small>
+                                <small class="text-muted">${test.status === 'PASSED' ? 'Test executed successfully - All assertions passed' : 'Test failed - One or more assertions did not pass'}</small>
                             </div>
                         </div>
                     </div>
@@ -1015,8 +1175,8 @@ Request Body: ${formData?.body || 'None'}`;
 
     // New methods for enhanced functionality
     initializeRoadmap() {
-        this.updateRoadmapStep(1, 'active');
-        this.announceToScreenReader('Workflow roadmap initialized. Step 1 is active.');
+        this.updateRoadmapStep(1, 'not-started');
+        this.announceToScreenReader('Workflow roadmap initialized. Ready to start.');
     }
 
     updateRoadmapStep(stepNumber, status) {

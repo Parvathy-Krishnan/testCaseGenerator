@@ -353,7 +353,7 @@ class KarateTestGenerator {
             if (authType === 'basic') {
                 requestData.username = document.getElementById('username').value || '';
                 requestData.password = document.getElementById('password').value || '';
-            } else if (['bearer', 'oauth', 'apikey', 'jwt'].includes(authType)) {
+            } else if (authType === 'token') {
                 requestData.token = document.getElementById('token').value || '';
             }
 
@@ -551,7 +551,7 @@ class KarateTestGenerator {
             method: document.getElementById('apiMethod').value,
             username: authType === 'basic' ? (document.getElementById('username').value || '') : '',
             password: authType === 'basic' ? (document.getElementById('password').value || '') : '',
-            token: ['bearer', 'oauth', 'apikey', 'jwt'].includes(authType) ? (document.getElementById('token').value || '') : '',
+            token: authType === 'token' ? (document.getElementById('token').value || '') : '',
             body: document.getElementById('payload').value || '',
             resourceId: document.getElementById('resourceId').value || '',
             acceptHeader: document.getElementById('acceptHeader').value || ''
@@ -736,7 +736,7 @@ Request Body: ${formData?.body || 'None'}`;
                         <div class="mt-2 p-3 bg-light rounded border text-center">
                             <span class="badge ${test.status === 'PASSED' ? 'bg-success' : 'bg-danger'} fs-5">${test.status}</span>
                             <div class="mt-1">
-                                <small class="text-muted">${test.justification || (test.status === 'PASSED' ? 'Test executed successfully' : 'Test failed - check details')}</small>
+                                <small class="text-muted">${test.status === 'PASSED' ? 'Test executed successfully' : 'Test failed - check details'}</small>
                             </div>
                         </div>
                     </div>

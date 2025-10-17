@@ -16,9 +16,6 @@ import tempfile
 import uuid
 import httpx
 import time
-import asyncio
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from openai import OpenAI
 
 # Load environment variables
@@ -35,7 +32,6 @@ class RestAssuredRequest(BaseModel):
     resourceId: Optional[str] = None
     acceptHeader: Optional[str] = None
     generatedTestCases: Optional[List[Union[Dict[str, Any], str]]] = None
-    task_id: Optional[str] = None
 
 class RestAssuredResponse(BaseModel):
     statusCode: int
@@ -43,61 +39,6 @@ class RestAssuredResponse(BaseModel):
 
 # Initialize FastAPI app
 app = FastAPI()
-
-# Task tracking for cancellation
-active_tasks = {}
-task_executor = ThreadPoolExecutor(max_workers=5)
-
-class CancelTaskRequest(BaseModel):
-    task_id: str
-
-@app.post("/cancel-task")
-async def cancel_task(request: CancelTaskRequest):
-    """Cancel a running task by task ID"""
-    task_id = request.task_id
-    print(f">>> Cancel request received for task ID: {task_id}")
-    
-    if task_id in active_tasks:
-        # Mark task as cancelled
-        active_tasks[task_id]["cancelled"] = True
-        active_tasks[task_id]["status"] = "cancelled"
-        active_tasks[task_id]["cancelled_at"] = datetime.now()
-        
-        print(f">>> Task {task_id} marked as cancelled")
-        return JSONResponse({
-            "success": True, 
-            "message": f"Task {task_id} has been cancelled",
-            "task_id": task_id
-        })
-    else:
-        print(f">>> Task {task_id} not found in active tasks")
-        return JSONResponse({
-            "success": False, 
-            "message": f"Task {task_id} not found or already completed",
-            "task_id": task_id
-        }, status_code=404)
-
-@app.get("/task-status/{task_id}")
-async def get_task_status(task_id: str):
-    """Get the status of a task by task ID"""
-    if task_id in active_tasks:
-        task_info = active_tasks[task_id].copy()
-        # Convert datetime objects to strings for JSON serialization
-        if "start_time" in task_info:
-            task_info["start_time"] = task_info["start_time"].isoformat()
-        if "cancelled_at" in task_info:
-            task_info["cancelled_at"] = task_info["cancelled_at"].isoformat()
-        
-        return JSONResponse({
-            "task_id": task_id,
-            "task_info": task_info
-        })
-    else:
-        return JSONResponse({
-            "task_id": task_id,
-            "task_info": None,
-            "message": "Task not found or already completed"
-        }, status_code=404)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -386,37 +327,15 @@ async def generate_test_cases(
     payload: str = Form(None),
     resourceId: str = Form(None),
     acceptHeader: str = Form(None),
-    customHeaders: str = Form(None),
-    task_id: str = Form(None)
+    customHeaders: str = Form(None)
 ):
-    # Use provided task ID or generate one if not provided
-    if not task_id:
-        task_id = str(uuid.uuid4())
-    print(f">>> generate-test-cases called with task ID: {task_id}")
-    print(f">>> Request details: {requirement[:30] if requirement else 'file upload'}, {operation}, authType={authType}")
-    
-    # Initialize task tracking
-    active_tasks[task_id] = {
-        "status": "processing",
-        "start_time": datetime.now(),
-        "cancelled": False,
-        "type": "test-generation"
-    }
+    print(f">>> generate-test-cases called with: {requirement[:30] if requirement else 'file upload'}, {operation}, authType={authType}")
     if file:
         print(f">>> file uploaded: {file.filename}")
     if authType == 'basic':
         print(f"Basic Auth: username={username}, password={'***' if password else None}")
-    elif authType in ['bearer', 'oauth', 'apikey', 'jwt']:
+    elif authType == 'token':
         print(f"Token Auth: token={'***' if token else None}")
-
-    # Validate payload is mandatory for POST and PUT operations
-    if apiMethod and apiMethod.upper() in ['POST', 'PUT']:
-        if not payload or payload.strip() == "":
-            method_name = "POST Payload (JSON)" if apiMethod.upper() == 'POST' else "PUT Payload (JSON)"
-            return JSONResponse(
-                {"error": f"{method_name} is mandatory when {apiMethod.upper()} method is selected"}, 
-                status_code=400
-            )
 
     if llm is None and not use_mock_llm:
         return JSONResponse({"error": "Model still loading, please retry in a few seconds."}, status_code=503)
@@ -464,30 +383,23 @@ async def generate_test_cases(
     # Build prompt for Karate DSL test cases
     prompt = (
         "You are a professional Karate DSL test case generator specializing in API testing. "
-        f"Generate comprehensive {operation.lower()} test cases using PURE Karate DSL syntax for the following requirement:\n\n"
+        f"Generate comprehensive {operation.lower()} test cases using Karate DSL syntax for the following requirement:\n\n"
         f"{requirement_text}\n"
         f"{api_context}\n"
-        "CRITICAL RULES FOR KARATE DSL GENERATION:\n"
-        "- NEVER mix JSON objects with Karate DSL syntax\n"
-        "- NEVER use lines like '* request {\"method\": \"GET\", \"path\": \"\", \"expectedStatus\": 404, \"headers\": {}}'\n"
-        "- Use ONLY pure Karate DSL syntax: Given path '', When method GET, Then status 200\n"
-        "- For POST/PUT requests, use '* def requestBody = {...}' followed by '* request requestBody'\n"
-        "- Ensure proper spelling and grammar in all descriptions and comments\n\n"
         "Generate a complete Karate feature file with:\n"
         "1. Feature description\n"
         "2. Background section with base URL and common setup\n"
-        "3. Multiple scenarios with Given-When-Then structure using PURE Karate DSL:\n"
-        "   - Given path '/endpoint'\n"
+        "3. Multiple scenarios with Given-When-Then structure\n"
+        "4. Use proper Karate DSL syntax including:\n"
+        "   - Given path 'endpoint'\n"
         "   - When method GET/POST/PUT/DELETE\n"
-        "   - Then status 200/400/404/500\n"
+        "   - Then status 200\n"
         "   - And match response contains expected data\n"
-        "4. For requests requiring body:\n"
-        "   - * def requestBody = { \"key\": \"value\" }\n"
-        "   - * request requestBody\n"
+        "   - Authentication setup if needed\n"
+        "   - Request/response validation\n"
         "5. Include boundary conditions, error scenarios, and data validation tests\n"
         "6. Add performance and security test scenarios where applicable\n\n"
-        "Format the output as a complete .feature file ready to run with Karate framework.\n"
-        "Ensure all text is properly spelled and uses correct English grammar."
+        "Format the output as a complete .feature file ready to run with Karate framework."
     )
     print(">>> Sending prompt to LLM (first 100 chars):", prompt[:100])
     
@@ -501,20 +413,6 @@ async def generate_test_cases(
     print(">>> Sending enhanced prompt to LLM (first 100 chars):", model_context["user_prompt"][:100])
 
     try:
-        # Add a test delay to allow time for cancellation testing
-        print(">>> Starting generation process - 5 second delay for cancellation testing...")
-        for i in range(5):
-            time.sleep(1)
-            print(f">>> Generation progress: {i+1}/5 seconds...")
-            if active_tasks.get(task_id, {}).get("cancelled", False):
-                active_tasks.pop(task_id, None)
-                return JSONResponse({"error": "Task was cancelled during initial delay", "task_id": task_id}, status_code=499)
-        
-        # Check if task was cancelled before starting generation
-        if active_tasks.get(task_id, {}).get("cancelled", False):
-            active_tasks.pop(task_id, None)
-            return JSONResponse({"error": "Task was cancelled", "task_id": task_id}, status_code=499)
-            
         response_text = ""
         generation_method = ""
         
@@ -522,19 +420,8 @@ async def generate_test_cases(
         
         if use_openai and openai_client and openai_status == "active":
             print(">>> 🔥 Tier 1: Using OpenAI API for test case generation...")
-            
-            # Check if task was cancelled before OpenAI call
-            if active_tasks.get(task_id, {}).get("cancelled", False):
-                active_tasks.pop(task_id, None)
-                return JSONResponse({"error": "Task was cancelled during OpenAI generation", "task_id": task_id}, status_code=499)
-                
             try:
                 response_text = generate_test_cases_with_openai(model_context, openai_client)
-                # Sanitize the response from OpenAI
-                if response_text:
-                    print(">>> Sanitizing OpenAI response...")
-                    response_text = sanitize_ai_response(response_text)
-
                 generation_method = "OpenAI API (Tier 1)"
                 print(f">>> ✅ OpenAI API successfully generated {len(response_text)} characters")
             except Exception as openai_error:
@@ -542,11 +429,6 @@ async def generate_test_cases(
                 print(">>> 🔄 Falling back to Tier 2: Local Llama model...")
                 
                 if llm is not None:
-                    # Check if task was cancelled before Llama generation
-                    if active_tasks.get(task_id, {}).get("cancelled", False):
-                        active_tasks.pop(task_id, None)
-                        return JSONResponse({"error": "Task was cancelled during Llama generation", "task_id": task_id}, status_code=499)
-                        
                     try:
                         prompt = f"{model_context['system_prompt']}\n\n{model_context['user_prompt']}"
                         response = llm.create_completion(
@@ -555,8 +437,7 @@ async def generate_test_cases(
                             temperature=0.7,
                             top_p=0.9
                         )
-                        raw_response = response["choices"][0]["text"]
-                        response_text = sanitize_ai_response(raw_response) # Sanitize here
+                        response_text = response["choices"][0]["text"]
                         generation_method = "Local Llama Model (Tier 2 - OpenAI Fallback)"
                         print(f">>> ✅ Local Llama model generated {len(response_text)} characters")
                     except Exception as llama_error:
@@ -574,12 +455,6 @@ async def generate_test_cases(
         elif llm is not None:
             print(">>> 🔥 Tier 2: Using Local Llama model for test case generation...")
             print(f">>> ℹ️ OpenAI API status: {openai_status} - using Local Llama as primary")
-            
-            # Check if task was cancelled before primary Llama generation
-            if active_tasks.get(task_id, {}).get("cancelled", False):
-                active_tasks.pop(task_id, None)
-                return JSONResponse({"error": "Task was cancelled during primary Llama generation", "task_id": task_id}, status_code=499)
-                
             try:
                 prompt = f"{model_context['system_prompt']}\n\n{model_context['user_prompt']}"
                 response = llm.create_completion(
@@ -588,8 +463,7 @@ async def generate_test_cases(
                     temperature=0.7,
                     top_p=0.9
                 )
-                raw_response = response["choices"][0]["text"]
-                response_text = sanitize_ai_response(raw_response) # Sanitize here
+                response_text = response["choices"][0]["text"]
                 generation_method = f"Local Llama Model (Tier 2 - OpenAI {openai_status})"
                 print(f">>> ✅ Local Llama model generated {len(response_text)} characters")
             except Exception as llama_error:
@@ -603,7 +477,7 @@ async def generate_test_cases(
             print(">>> 🔥 Tier 3: Using Enhanced Local Generation...")
             print(f">>> ℹ️ OpenAI API status: {openai_status}, Local Llama: {'Available' if llm else 'Not Available'}")
             response_text = generate_mock_test_cases(requirement_text, operation, api_context)
-            generation_method = "Enhanced Local Generation (Tier 3 - Primary)"
+            generation_method = f"Enhanced Local Generation (Tier 3 - Primary)"
             print(f">>> ✅ Enhanced local generation completed: {len(response_text)} characters")
         
         # Add generation method info to response
@@ -636,19 +510,10 @@ async def generate_test_cases(
         # Save the response to a file in the workspace
         save_response_to_file(response_text, requirement_text, api_context, operation)
         
-        # Mark task as completed and clean up
-        active_tasks.pop(task_id, None)
-        
-        return JSONResponse({
-            "output": response_text,
-            "task_id": task_id,
-            "generation_method": generation_method
-        })
+        return JSONResponse({"output": response_text})
     except Exception as e:
         print(">>> Error from LLM:", str(e))
-        # Clean up task on error
-        active_tasks.pop(task_id, None)
-        return JSONResponse({"error": str(e), "task_id": task_id}, status_code=500)
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 def build_model_context(requirement_text: str, api_context: str, operation: str) -> dict:
     """
@@ -658,17 +523,12 @@ def build_model_context(requirement_text: str, api_context: str, operation: str)
         "You are a world-class software engineer and professional Karate DSL test case generator with expertise in comprehensive requirement analysis. "
         "Your mission is to analyze requirements documents thoroughly and generate complete, executable Karate feature files that provide 100% test coverage. "
         "You must be meticulous, analytical, and ensure no requirement goes untested. "
-        "CRITICAL KARATE DSL RULES: "
-        "1. NEVER mix JSON objects with Karate DSL syntax "
-        "2. NEVER use lines like '* request {\"method\": \"GET\", \"expectedStatus\": 404}' "
-        "3. Use ONLY pure Karate DSL: Given path '', When method GET, Then status 200 "
-        "4. For request bodies use: * def requestBody = {...} followed by * request requestBody "
-        "5. Ensure perfect spelling and grammar in all text "
-        "6. Never hallucinate or assume requirements not explicitly stated "
-        "7. Base ALL test cases on actual documented requirements "
-        "8. Ensure proper Karate DSL syntax with executable scenarios "
-        "9. Generate both positive and negative test cases as specified "
-        "10. Include comprehensive validation for all identified requirements"
+        "STRICT RULES: "
+        "1. Never hallucinate or assume requirements not explicitly stated "
+        "2. Base ALL test cases on actual documented requirements "
+        "3. Ensure proper Karate DSL syntax with executable scenarios "
+        "4. Generate both positive and negative test cases as specified "
+        "5. Include comprehensive validation for all identified requirements"
     )
 
     user_prompt = (
@@ -994,27 +854,17 @@ Background:
     # Generate scenarios based on identified requirements
     scenario_counter = 1
     
-    # Determine expected status codes based on method
-    method_upper = method.upper()
-    expected_success_status = "201" if method_upper == "POST" else "204" if method_upper == "DELETE" else "200"
-    
     # Functional requirement scenarios
     if analysis['functional_requirements']:
         for i, req in enumerate(analysis['functional_requirements'][:3], 1):  # Limit to first 3
             clean_req = req[:30] + "..." if len(req) > 30 else req
-            
-            # Add request body for POST/PUT/PATCH methods
-            request_body = ""
-            if method_upper in ["POST", "PUT", "PATCH"]:
-                request_body = f'  * def requestBody = {{"title": "Test Data", "description": "Functional test"}}\n  * request requestBody\n'
-            
-            test_cases += f"""Scenario: Functional Requirement Test {scenario_counter} - {method_upper} Operation
+            test_cases += f"""Scenario: Functional Requirement Test {scenario_counter} - Feed Collection Management
   # Testing core functionality: {clean_req}
   Given path '/api/v1/resource'
-{request_body}  When method {method}
-  Then status {expected_success_status}
+  When method {method}
+  Then status 200
   And match response != null
-  * print 'Functional {method_upper} test response:', response
+  * print 'Functional test response:', response
 
 """
             scenario_counter += 1
@@ -1023,20 +873,14 @@ Background:
     if analysis['validation_points']:
         for i, val in enumerate(analysis['validation_points'][:3], 1):  # Limit to first 3
             clean_val = val[:30] + "..." if len(val) > 30 else val
-            
-            # Add request body for POST/PUT/PATCH methods
-            request_body = ""
-            if method_upper in ["POST", "PUT", "PATCH"]:
-                request_body = f'  * def requestBody = {{"title": "Valid Data", "description": "Validation test"}}\n  * request requestBody\n'
-            
-            test_cases += f"""Scenario: Validation Test {scenario_counter} - {method_upper} Data Validation
+            test_cases += f"""Scenario: Validation Test {scenario_counter} - Input Data Validation
   # Testing validation: {clean_val}
   Given path '/api/v1/resource'
-{request_body}  When method {method}
-  Then status {expected_success_status}
+  When method {method}
+  Then status 200
   And match response != null
   And match response contains expected data
-  * print 'Validation {method_upper} test response:', response
+  * print 'Validation test response:', response
 
 """
             scenario_counter += 1
@@ -1045,19 +889,13 @@ Background:
     if analysis['business_rules']:
         for i, rule in enumerate(analysis['business_rules'][:2], 1):  # Limit to first 2
             clean_rule = rule[:30] + "..." if len(rule) > 30 else rule
-            
-            # Add request body for POST/PUT/PATCH methods
-            request_body = ""
-            if method_upper in ["POST", "PUT", "PATCH"]:
-                request_body = f'  * def requestBody = {{"title": "Business Rule Test", "description": "Rule validation"}}\n  * request requestBody\n'
-            
-            test_cases += f"""Scenario: Business Rule Test {scenario_counter} - {method_upper} System Constraints
+            test_cases += f"""Scenario: Business Rule Test {scenario_counter} - System Constraints
   # Testing business rule: {clean_rule}
   Given path '/api/v1/resource'
-{request_body}  When method {method}
-  Then status {expected_success_status}
+  When method {method}
+  Then status 200
   And match response != null
-  * print 'Business rule {method_upper} test response:', response
+  * print 'Business rule test response:', response
 
 """
             scenario_counter += 1
@@ -1066,306 +904,110 @@ Background:
     if analysis['error_conditions']:
         for i, error in enumerate(analysis['error_conditions'][:2], 1):  # Limit to first 2
             clean_error = error[:30] + "..." if len(error) > 30 else error
-            
-            # Add invalid request body for POST/PUT/PATCH methods
-            request_body = ""
-            if method_upper in ["POST", "PUT", "PATCH"]:
-                request_body = f'  * def requestBody = {{"invalid": "data", "malformed": true}}\n  * request requestBody\n'
-            
-            test_cases += f"""Scenario: Error Condition Test {scenario_counter} - {method_upper} Error Handling
+            test_cases += f"""Scenario: Error Condition Test {scenario_counter} - Error Handling
   # Testing error condition: {clean_error}
   Given path '/api/v1/invalid'
-{request_body}  When method {method}
+  When method {method}
   Then status 400
   And match response.error != null
-  * print 'Error {method_upper} test response:', response
+  * print 'Error test response:', response
 
 """
             scenario_counter += 1
     
-    # Add method-specific scenarios for comprehensive coverage
-    method_upper = method.upper()
-    
-    if method_upper == "GET":
-        test_cases += f"""
-Scenario: GET Valid Resource
-  Given path '/api/v1/resource/1'
-  When method GET
-  Then status 200
-  And match response != null
-  And match response.id != null
-  * print 'GET test response:', response
-
-Scenario: GET Resource Collection
-  Given path '/api/v1/resources'
-  When method GET
-  Then status 200
-  And match response != null
-  And match response.size() >= 0
-  * print 'GET collection response:', response
-
-Scenario: GET Non-Existent Resource
-  Given path '/api/v1/resource/999'
-  When method GET
-  Then status 404
-  And match response.error != null
-  * print 'GET 404 response:', response
-
-Scenario: GET Authentication Required
+    # Add standard API test scenarios
+    test_cases += f"""Scenario: Authentication Required Test
   Given path '/api/v1/secure'
   * header Authorization = 'Bearer invalid-token'
-  When method GET
+  When method {method}
   Then status 401
   And match response.message contains 'unauthorized'
-  * print 'GET auth test response:', response
+  * print 'Auth test response:', response
 
-Scenario: GET Performance Test
+Scenario: Performance Test
   Given path '/api/v1/resource'
-  When method GET
+  When method {method}
   Then status 200
   * def responseTime = responseTime
-  * print 'GET Response time:', responseTime, 'ms'
+  * print 'Response time:', responseTime, 'ms'
   * assert responseTime < 5000
 
-Scenario: GET Content Type Validation
+Scenario: Content Type Validation
   Given path '/api/v1/resource'
   * header Accept = 'application/json'
-  When method GET
+  When method {method}
   Then status 200
   And match header Content-Type contains 'application/json'
+
+Scenario: Invalid Endpoint Test
+  Given path '/api/v1/nonexistent'
+  When method {method}
+  Then status 404
+  And match response.error != null
 """
 
-    elif method_upper == "POST":
+    # Add method-specific scenarios for comprehensive coverage
+    if method.upper() == "POST":
         test_cases += f"""
+
 Scenario: POST with Valid Payload
   Given path '/api/v1/resource'
-  * def requestBody = {{"title": "Test Item", "description": "Test description"}}
-  * request requestBody
+  * request {{"title": "Test Item", "description": "Test description"}}
   When method POST
   Then status 201
   And match response.id != null
   And match response.title == 'Test Item'
-  * print 'POST create response:', response
 
 Scenario: POST with Invalid Payload
   Given path '/api/v1/resource'
-  * def requestBody = {{"invalid": "data"}}
-  * request requestBody
+  * request {{"invalid": "data"}}
   When method POST
   Then status 400
   And match response.errors != null
-  * print 'POST validation error:', response
 
 Scenario: POST with Empty Payload
   Given path '/api/v1/resource'
-  * def requestBody = {{}}
-  * request requestBody
+  * request {{}}
   When method POST
   Then status 400
   And match response.error != null
-  * print 'POST empty payload error:', response
-
-Scenario: POST Authentication Required
-  Given path '/api/v1/secure'
-  * header Authorization = 'Bearer invalid-token'
-  * def requestBody = {{"data": "test"}}
-  * request requestBody
-  When method POST
-  Then status 401
-  And match response.message contains 'unauthorized'
-  * print 'POST auth test response:', response
-
-Scenario: POST Performance Test
-  Given path '/api/v1/resource'
-  * def requestBody = {{"title": "Performance Test"}}
-  * request requestBody
-  When method POST
-  Then status 201
-  * def responseTime = responseTime
-  * print 'POST Response time:', responseTime, 'ms'
-  * assert responseTime < 5000
-
-Scenario: POST Content Type Validation
-  Given path '/api/v1/resource'
-  * header Accept = 'application/json'
-  * def requestBody = {{"title": "Content Test"}}
-  * request requestBody
-  When method POST
-  Then status 201
-  And match header Content-Type contains 'application/json'
 """
-
-    elif method_upper == "PUT":
+    elif method.upper() == "PUT":
         test_cases += f"""
+
 Scenario: PUT Update Resource
   Given path '/api/v1/resource/1'
-  * def requestBody = {{"title": "Updated Item", "description": "Updated description"}}
-  * request requestBody
+  * request {{"title": "Updated Item", "description": "Updated description"}}
   When method PUT
   Then status 200
   And match response.title == 'Updated Item'
-  * print 'PUT update response:', response
 
 Scenario: PUT Non-Existent Resource
   Given path '/api/v1/resource/999'
-  * def requestBody = {{"title": "Not Found"}}
-  * request requestBody
+  * request {{"title": "Not Found"}}
   When method PUT
   Then status 404
   And match response.error != null
-  * print 'PUT 404 response:', response
-
-Scenario: PUT with Invalid Payload
-  Given path '/api/v1/resource/1'
-  * def requestBody = {{"invalid": "data"}}
-  * request requestBody
-  When method PUT
-  Then status 400
-  And match response.errors != null
-  * print 'PUT validation error:', response
-
-Scenario: PUT Authentication Required
-  Given path '/api/v1/secure/1'
-  * header Authorization = 'Bearer invalid-token'
-  * def requestBody = {{"title": "Secure Update"}}
-  * request requestBody
-  When method PUT
-  Then status 401
-  And match response.message contains 'unauthorized'
-  * print 'PUT auth test response:', response
-
-Scenario: PUT Performance Test
-  Given path '/api/v1/resource/1'
-  * def requestBody = {{"title": "Performance Update"}}
-  * request requestBody
-  When method PUT
-  Then status 200
-  * def responseTime = responseTime
-  * print 'PUT Response time:', responseTime, 'ms'
-  * assert responseTime < 5000
 """
-
-    elif method_upper == "DELETE":
+    elif method.upper() == "DELETE":
         test_cases += f"""
+
 Scenario: DELETE Valid Resource
   Given path '/api/v1/resource/1'
   When method DELETE
   Then status 204
-  * print 'DELETE success response'
 
 Scenario: DELETE Non-Existent Resource
   Given path '/api/v1/resource/999'
   When method DELETE
   Then status 404
   And match response.error != null
-  * print 'DELETE 404 response:', response
-
-Scenario: DELETE Authentication Required
-  Given path '/api/v1/secure/1'
-  * header Authorization = 'Bearer invalid-token'
-  When method DELETE
-  Then status 401
-  And match response.message contains 'unauthorized'
-  * print 'DELETE auth test response:', response
-
-Scenario: DELETE Performance Test
-  Given path '/api/v1/resource/1'
-  When method DELETE
-  Then status 204
-  * def responseTime = responseTime
-  * print 'DELETE Response time:', responseTime, 'ms'
-  * assert responseTime < 5000
-
-Scenario: DELETE Already Deleted Resource
-  Given path '/api/v1/resource/1'
-  When method DELETE
-  Then status 404
-  And match response.error != null
-  * print 'DELETE already deleted response:', response
-"""
-
-    elif method_upper == "PATCH":
-        test_cases += f"""
-Scenario: PATCH Partial Update
-  Given path '/api/v1/resource/1'
-  * def requestBody = {{"title": "Patched Title"}}
-  * request requestBody
-  When method PATCH
-  Then status 200
-  And match response.title == 'Patched Title'
-  * print 'PATCH update response:', response
-
-Scenario: PATCH Non-Existent Resource
-  Given path '/api/v1/resource/999'
-  * def requestBody = {{"title": "Not Found"}}
-  * request requestBody
-  When method PATCH
-  Then status 404
-  And match response.error != null
-  * print 'PATCH 404 response:', response
-
-Scenario: PATCH with Invalid Field
-  Given path '/api/v1/resource/1'
-  * def requestBody = {{"invalid_field": "value"}}
-  * request requestBody
-  When method PATCH
-  Then status 400
-  And match response.errors != null
-  * print 'PATCH validation error:', response
-
-Scenario: PATCH Authentication Required
-  Given path '/api/v1/secure/1'
-  * header Authorization = 'Bearer invalid-token'
-  * def requestBody = {{"title": "Secure Patch"}}
-  * request requestBody
-  When method PATCH
-  Then status 401
-  And match response.message contains 'unauthorized'
-  * print 'PATCH auth test response:', response
-
-Scenario: PATCH Performance Test
-  Given path '/api/v1/resource/1'
-  * def requestBody = {{"title": "Performance Patch"}}
-  * request requestBody
-  When method PATCH
-  Then status 200
-  * def responseTime = responseTime
-  * print 'PATCH Response time:', responseTime, 'ms'
-  * assert responseTime < 5000
-"""
-
-    else:
-        # Fallback for other methods (HEAD, OPTIONS, etc.)
-        test_cases += f"""
-Scenario: {method_upper} Basic Test
-  Given path '/api/v1/resource'
-  When method {method_upper}
-  Then status 200
-  * print '{method_upper} test response:', response
-
-Scenario: {method_upper} Authentication Test
-  Given path '/api/v1/secure'
-  * header Authorization = 'Bearer invalid-token'
-  When method {method_upper}
-  Then status 401
-  And match response.message contains 'unauthorized'
-  * print '{method_upper} auth test response:', response
-
-Scenario: {method_upper} Not Found Test
-  Given path '/api/v1/nonexistent'
-  When method {method_upper}
-  Then status 404
-  And match response.error != null
-  * print '{method_upper} 404 response:', response
 """
 
     # Count total scenarios for logging
     total_scenarios = len([line for line in test_cases.split('\n') if line.strip().startswith('Scenario:')])
     print(f">>> Enhanced mock generated {total_scenarios} test scenarios based on requirement analysis")
-    
-    # Sanitize the generated content to prevent character issues
-    sanitized_test_cases = sanitize_ai_response(test_cases)
-    return sanitized_test_cases
+    return test_cases
 
 def generate_test_cases_with_openai(model_context: dict, client) -> str:
     """Generate test cases using OpenAI API with enhanced error handling"""
@@ -1388,11 +1030,7 @@ def generate_test_cases_with_openai(model_context: dict, client) -> str:
             top_p=0.9
         )
         print(">>> OpenAI API call successful")
-        
-        # Sanitize the response to remove problematic characters
-        raw_content = response.choices[0].message.content
-        sanitized_content = sanitize_ai_response(raw_content)
-        return sanitized_content
+        return response.choices[0].message.content
         
     except Exception as e:
         error_msg = str(e).lower()
@@ -1401,34 +1039,22 @@ def generate_test_cases_with_openai(model_context: dict, client) -> str:
         if "api key" in error_msg or "unauthorized" in error_msg:
             print(f">>> ❌ OpenAI API Authentication Error: Invalid or inactive API key")
             raise Exception("OpenAI API key is invalid or inactive. Please check your API key.")
-
-
-def sanitize_ai_response(content: str) -> str:
-    """Sanitize AI response to remove problematic characters and encoding issues"""
-    if not content:
-        return ""
-    
-    # Remove common problematic characters that appear in AI responses
-    problematic_chars = [
-        "@ neue",
-        "développement",
-        "@ ",  # Remove stray @ symbols
-    ]
-    
-    sanitized = content
-    for char_pattern in problematic_chars:
-        sanitized = sanitized.replace(char_pattern, "")
-    
-    # Remove non-ASCII characters that might cause display issues
-    # Keep only printable ASCII + basic unicode
-    import re
-    sanitized = re.sub(r'[^\x20-\x7E\n\r\t]', '', sanitized)
-    
-    # Clean up multiple spaces and lines
-    sanitized = re.sub(r' +', ' ', sanitized)  # Multiple spaces to single
-    sanitized = re.sub(r'\n\s*\n', '\n\n', sanitized)  # Clean up blank lines
-    
-    return sanitized.strip()
+            
+        elif "quota" in error_msg or "billing" in error_msg or "exceeded" in error_msg:
+            print(f">>> ❌ OpenAI API Quota Error: {e}")
+            raise Exception("OpenAI API quota exceeded or billing issue. Using local generation.")
+            
+        elif "rate limit" in error_msg or "too many requests" in error_msg:
+            print(f">>> ❌ OpenAI API Rate Limit: {e}")
+            raise Exception("OpenAI API rate limit exceeded. Using local generation.")
+            
+        elif "model" in error_msg and "not found" in error_msg:
+            print(f">>> ❌ OpenAI API Model Error: {e}")
+            raise Exception("OpenAI model not available. Using local generation.")
+            
+        else:
+            print(f">>> ❌ OpenAI API General Error: {e}")
+            raise Exception(f"OpenAI API error: {e}. Using local generation.")
 
 @app.post("/run-rest-assured")
 async def run_rest_assured_test(request: RestAssuredRequest):
@@ -1624,36 +1250,15 @@ def create_test_case_from_scenario(scenario_name: str, steps: List[str], comment
             http_method = method_part.upper()
             break
     
-    # Extract path from steps with improved parsing
+    # Extract path from steps
     api_path = ""
     for step in steps:
         if 'Given path' in step:
-            # Extract path from "Given path 'railCollections'" or similar patterns
-            import re
-            # Look for content between single quotes after 'Given path'
-            path_pattern = r"Given path\s+['\"]([^'\"]+)['\"]"
-            match = re.search(path_pattern, step)
-            if match:
-                api_path = match.group(1)
-                # Ensure the path doesn't contain spaces (fix splitting issues)
-                api_path = api_path.replace(" ", "")
-            else:
-                # Fallback to simple splitting if regex fails
-                path_match = step.split("'")
-                if len(path_match) >= 3:  # Expected format: "Given path '" + path + "'"
-                    api_path = path_match[1].replace(" ", "")
+            # Extract path from "Given path 'railCollections'"
+            path_match = step.split("'")
+            if len(path_match) > 1:
+                api_path = path_match[1]
             break
-    
-    # Extract headers from steps
-    headers = {}
-    for step in steps:
-        if step.strip().startswith('* header'):
-            # e.g., * header Accept = 'application/xml'
-            parts = step.split('=', 1)
-            if len(parts) == 2:
-                header_key = parts[0].replace('* header', '').strip()
-                header_value = parts[1].strip().strip("'").strip('"')
-                headers[header_key] = header_value
     
     # Determine test type based on scenario name and expected status
     test_type = "positive" if expected_status < 400 else "negative"
@@ -1687,8 +1292,7 @@ def create_test_case_from_scenario(scenario_name: str, steps: List[str], comment
         "Test Data": {
             "method": http_method,
             "path": api_path,
-            "expectedStatus": expected_status,
-            "headers": headers
+            "expectedStatus": expected_status
         }
     }
     
@@ -1699,18 +1303,8 @@ async def run_karate_automation_script(request: RestAssuredRequest):
     """
     Generate and execute Karate DSL automation script for generated test cases
     """
-    # Use provided task ID or generate one if not provided
-    task_id = getattr(request, 'task_id', None) or str(uuid.uuid4())
-    print(f">>> Karate automation script execution for: {request.apiEndpoint} (Task ID: {task_id})")
+    print(f">>> Karate automation script execution for: {request.apiEndpoint}")
     print(f">>> Number of generated test cases: {len(request.generatedTestCases or [])}")
-    
-    # Initialize task tracking
-    active_tasks[task_id] = {
-        "status": "processing",
-        "start_time": datetime.now(),
-        "cancelled": False,
-        "type": "automation-script"
-    }
     
     try:
         # Check if we have generated test cases to work with
@@ -1770,14 +1364,6 @@ async def run_karate_automation_script(request: RestAssuredRequest):
         test_results = []
         
         for i, test_case in enumerate(processed_test_cases):
-            # Check if task was cancelled before executing each test case
-            if active_tasks.get(task_id, {}).get("cancelled", False):
-                active_tasks.pop(task_id, None)
-                return JSONResponse({
-                    "error": "Automation execution was cancelled", 
-                    "task_id": task_id,
-                    "partial_results": test_results
-                }, status_code=499)
             scenario_name = (
                 test_case.get('Test Scenario') or 
                 test_case.get('scenario') or 
@@ -1805,12 +1391,9 @@ async def run_karate_automation_script(request: RestAssuredRequest):
                 print(f">>> Test case {i+1} completed - Status: {result.get('statusCode', 'unknown')}")
                 
                 # Format the result
-                status_info = determine_test_status(result, expected_status)
                 test_results.append({
                     "scenario": scenario_name,
-                    "status": status_info["status"],
-                    "justification": status_info["justification"],
-                    "expectedStatus": expected_status,
+                    "status": determine_test_status(result, expected_status),
                     "statusCode": result.get("statusCode", 0),
                     "response": result.get("response", ""),
                     "details": get_test_case_details(test_case),
@@ -1827,9 +1410,7 @@ async def run_karate_automation_script(request: RestAssuredRequest):
                 test_results.append({
                     "scenario": scenario_name,
                     "status": "FAILED",
-                    "justification": f"Test execution failed with an exception: {str(e)}",
                     "statusCode": 0,
-                    "expectedStatus": extract_expected_status(test_case),
                     "response": f"Execution error: {str(e)}",
                     "details": get_test_case_details(test_case),
                     "expectedResult": test_case.get('Expected Result', 'Not specified'),
@@ -1856,28 +1437,16 @@ async def run_karate_automation_script(request: RestAssuredRequest):
         }
         
         print(f">>> Karate automation completed: {passed_tests}/{total_tests} parsed Karate scenarios passed")
-        
-        # Mark task as completed and clean up
-        active_tasks.pop(task_id, None)
-        
-        # Add task_id to response
-        automation_result["task_id"] = task_id
         return JSONResponse(automation_result)
         
     except Exception as e:
         print(f">>> Karate automation script error: {str(e)}")
-        # Clean up task on error
-        active_tasks.pop(task_id, None)
-        raise HTTPException(status_code=500, detail=f"Karate automation execution failed: {str(e)} (Task ID: {task_id})")
+        raise HTTPException(status_code=500, detail=f"Karate automation execution failed: {str(e)}")
 
 # Helper functions for generated test case execution
 
 def extract_expected_status(test_case: Dict[str, Any]) -> int:
     """Extract expected HTTP status code from test case"""
-    # Best source: the 'Expected Status' field if it's an integer
-    if isinstance(test_case.get('Expected Status'), int):
-        return test_case.get('Expected Status')
-
     expected_result = test_case.get('Expected Result', '')
     
     # Look for status codes in expected result
@@ -1938,13 +1507,8 @@ def extract_test_data(test_case: Dict[str, Any], base_request: RestAssuredReques
                     test_data['headers'] = json.loads(test_case[field])
                 elif isinstance(test_case[field], dict):
                     test_data['headers'] = test_case[field]
-                break
             except:
                 pass
-    
-    # Also extract headers parsed from Karate steps
-    if test_case.get('Test Data', {}).get('headers'):
-        test_data['headers'].update(test_case['Test Data']['headers'])
     
     # Extract query parameters
     query_fields = ['Query Parameters', 'Query Params', 'Parameters', 'Params']
@@ -2023,31 +1587,15 @@ def create_test_request(base_request: RestAssuredRequest, test_case: Dict[str, A
         generatedTestCases=[]  # Don't pass generated test cases to avoid recursion
     )
     
-    # Check if test case specifies a different path and construct the full endpoint
-    api_path = test_case.get('API Path')
-    if api_path:
-        # Extract domain from the original endpoint
-        from urllib.parse import urlparse
-        parsed_original = urlparse(base_request.apiEndpoint)
-        base_domain = f"{parsed_original.scheme}://{parsed_original.netloc}"
-        
-        # Use the AI-generated path directly with the base domain
-        full_test_endpoint = f"{base_domain}/{api_path.lstrip('/')}"
-        test_request.apiEndpoint = full_test_endpoint
-    elif test_case.get('Endpoint', test_case.get('API Endpoint', '')) and test_case.get('Endpoint', test_case.get('API Endpoint', '')) != base_request.apiEndpoint:
-        test_request.apiEndpoint = test_case.get('Endpoint', test_case.get('API Endpoint', ''))
+    # Check if test case specifies different endpoint
+    endpoint_field = test_case.get('Endpoint', test_case.get('API Endpoint', ''))
+    if endpoint_field and endpoint_field != base_request.apiEndpoint:
+        test_request.apiEndpoint = endpoint_field
     
     # Check if test case specifies different method
-    method_field = test_case.get('HTTP Method', '') # <-- FIX: Use correct field
+    method_field = test_case.get('Method', test_case.get('HTTP Method', ''))
     if method_field and method_field != base_request.method:
         test_request.method = method_field.upper()
-    
-    # Override headers if specified in the test case
-    if test_data.get('headers'):
-        if 'Accept' in test_data['headers']:
-            test_request.acceptHeader = test_data['headers']['Accept']
-        if 'Authorization' in test_data['headers']:
-            test_request.token = test_data['headers']['Authorization']
     
     return test_request
 
@@ -2082,33 +1630,16 @@ async def execute_generated_test_case(request: RestAssuredRequest, test_case: Di
             }
         }
 
-def determine_test_status(result: Dict[str, Any], expected_status: int) -> Dict[str, str]:
-    """Determine if test passed or failed and provide justification."""
+def determine_test_status(result: Dict[str, Any], expected_status: int) -> str:
+    """Determine if test passed or failed based on expected vs actual status"""
     actual_status = result.get("statusCode", 0)
     
-    # For success scenarios (2xx)
-    if 200 <= expected_status < 300:
-        if 200 <= actual_status < 300:
-            return {
-                "status": "PASSED", 
-                "justification": f"Test passed. API returned a success status ({actual_status}) as expected."
-            }
-        else:
-            return {
-                "status": "FAILED", 
-                "justification": f"Test failed. Expected a success status (2xx), but received an error status ({actual_status})."
-            }
-    
-    # For all other scenarios (redirects, client/server errors)
+    # For error scenarios (4xx, 5xx), we expect error codes
+    if expected_status >= 400:
+        return "PASSED" if actual_status >= 400 else "FAILED"
     else:
-        if actual_status == expected_status:
-            return {"status": "PASSED", "justification": f"Test passed. API returned the exact expected error status code of {actual_status}."}
-        else:
-            justification = f"Test failed. Expected status code {expected_status}, but received {actual_status}."
-            if actual_status >= 400 and expected_status >= 400:
-                justification = f"Test failed. Expected error code {expected_status}, but received a different error code ({actual_status})."
-            
-            return {"status": "FAILED", "justification": justification}
+        # For success scenarios, we expect 2xx codes
+        return "PASSED" if 200 <= actual_status < 300 else "FAILED"
 
 def get_test_case_details(test_case: Dict[str, Any]) -> str:
     """Get formatted details from test case"""
@@ -2141,16 +1672,7 @@ def generate_karate_step(request: RestAssuredRequest, expected_status: int) -> s
         steps.append("* header Authorization = auth")
     
     if request.body:
-        steps.append(f"* def requestBody = {request.body}")
-        steps.append("* request requestBody")
-        try:
-            # Ensure the body is a valid JSON string literal for Karate
-            body_json_str = json.dumps(json.loads(request.body))
-            steps.append(f"* def requestBody = {body_json_str}")
-            steps.append("* request requestBody")
-        except (json.JSONDecodeError, TypeError):
-            # Fallback for non-JSON bodies
-            steps.append(f"* def requestBody = '{request.body}'")
+        steps.append(f"* request {request.body}")
     
     steps.append(f"* method '{request.method or 'GET'}'")
     steps.append(f"* status {expected_status}")
@@ -2185,12 +1707,11 @@ Background:
         test_request = create_test_request(request, test_case, test_data)
         
         feature_content += f"""Scenario: {scenario_name}
-  Given path '{test_request.apiEndpoint.replace(base_url, '').lstrip('/')}'
+  Given path '{request.apiEndpoint.replace(base_url, '').lstrip('/')}'
 """
         
         if test_request.body:
-            feature_content += f"  * def requestBody = {test_request.body}\n"
-            feature_content += f"  * request requestBody\n"
+            feature_content += f"  * request {test_request.body}\n"
         
         feature_content += f"""  When method {test_request.method or 'GET'}
   Then status {expected_status}
@@ -2335,10 +1856,10 @@ async def execute_api_test(request: RestAssuredRequest, test_type: str) -> dict:
         # Prepare headers
         headers = {'Content-Type': 'application/json'}
         # Add Accept header if provided
+        # Always set Accept header as 'Accept' if provided
         if hasattr(request, 'acceptHeader') and request.acceptHeader:
             headers['Accept'] = request.acceptHeader
         print(f"Outgoing headers: {headers}")
-        
         
         # Prepare authentication
         auth = None
@@ -2348,7 +1869,10 @@ async def execute_api_test(request: RestAssuredRequest, test_type: str) -> dict:
             else:
                 auth = (request.username, request.password)
         elif request.token:
-            if test_type != "invalid_auth":
+            if test_type == "invalid_auth":
+                headers['Authorization'] = 'Bearer invalid-token'
+            else:
+                # Check if token already contains auth type (Basic/Bearer)
                 if request.token.startswith(('Basic ', 'Bearer ', 'Digest ')):
                     headers['Authorization'] = request.token
                 else:
@@ -2377,6 +1901,14 @@ async def execute_api_test(request: RestAssuredRequest, test_type: str) -> dict:
             print(f"Using basic auth with user: {auth[0]}")
         print(f"=== END REQUEST DETAILS ===")
         
+        # Modify endpoint for test scenarios
+        if test_type == "invalid_endpoint":
+            endpoint += "/invalid"
+        elif method == 'DELETE' and request.resourceId:
+            if not endpoint.endswith('/'):
+                endpoint += '/'
+            endpoint += request.resourceId
+        
         # Execute request based on method
         if method == 'GET':
             response = requests.get(endpoint, headers=headers, auth=auth, timeout=10)
@@ -2394,9 +1926,9 @@ async def execute_api_test(request: RestAssuredRequest, test_type: str) -> dict:
         # Format response
         try:
             response_data = response.json()
-            response_text = json.dumps(response_data, indent=2)
+            response_text = json.dumps(response_data, indent=2)[:500] + "..." if len(json.dumps(response_data, indent=2)) > 500 else json.dumps(response_data, indent=2)
         except:
-            response_text = response.text
+            response_text = response.text[:500] + "..." if len(response.text) > 500 else response.text
         
         return {
             "statusCode": response.status_code,

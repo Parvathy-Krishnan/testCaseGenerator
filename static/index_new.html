@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Karate DSL Test Case Generator</title>
+    <title>AI-Powered API Testing Studio</title>    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <title>AI-Powered API Testing Studio</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='%23FFD700' viewBox='0 0 16 16'%3e%3cpath d='M6.5 6a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5zM8 7a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1A.5.5 0 0 1 7 7zm-3.5.5A1.5 1.5 0 0 1 6 6h4a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 10 12H6a1.5 1.5 0 0 1-1.5-1.5zM5 2.5A2.5 2.5 0 0 1 7.5 0h1A2.5 2.5 0 0 1 11 2.5V3h.5A1.5 1.5 0 0 1 13 4.5v7a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 11.5v-7A1.5 1.5 0 0 1 4.5 3H5zM6 2.5v.5h4v-.5A1.5 1.5 0 0 0 8.5 1h-1A1.5 1.5 0 0 0 6 2.5M4.5 4a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .5.5h7a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.5-.5z'/%3e%3c/svg%3e">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="/static/styles.css" rel="stylesheet">
@@ -88,21 +90,10 @@
                 <div class="decoration-circle circle-3"></div>
             </div>
             <div class="banner-content">
-                <div class="banner-icon">
-                    <i class="bi bi-cpu-fill"></i>
-                </div>
                 <div class="banner-text">
-                    <h1 class="banner-title">Karate DSL Test Case Generator</h1>
-                    <p class="banner-subtitle">Generate comprehensive BDD-style API test cases using Karate DSL framework</p>
+                    <h1 class="banner-title">AI-Powered API Testing Studio</h1>
+                    <p class="banner-subtitle">An intelligent environment for API test generation, execution, and reporting.</p>
                 </div>
-            </div>
-        </div>
-
-        <!-- Test Case Counter -->
-        <div class="text-center mb-4">
-            <div id="testCaseCounter" class="d-inline-block">
-                <i class="bi bi-clipboard-check me-2"></i>
-                <span id="testCaseCountNumber">0</span> Test Cases Generated
             </div>
         </div>
 
@@ -182,19 +173,14 @@
                             <select class="form-select" id="authType" name="authType">
                                 <option value="none">None</option>
                                 <option value="basic">Basic Auth</option>
-                                <option value="bearer">Bearer Token</option>
+                                <option value="bearer">Base64</option>
                                 <option value="oauth">OAuth</option>
-                                <option value="apikey">API Key</option>
-                                <option value="digest">Digest Auth</option>
-                                <option value="ntlm">NTLM</option>
-                                <option value="aws">AWS Signature</option>
-                                <option value="jwt">JWT Token</option>
                             </select>
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="acceptHeader" class="form-label">Accept Header</label>
                             <select class="form-select" id="acceptHeader" name="acceptHeader">
-                                <option value="application/json">application/json;v=1</option>
+                                <option value="application/json;v=1">application/json;v=1</option>
                                 <option value="application/json">application/json</option>
                                 <option value="application/xml">application/xml</option>
                                 <option value="text/plain">text/plain</option>
@@ -206,20 +192,22 @@
                         </div>
                     </div>
 
-                    <div class="row">
+                    <!-- Authentication Fields - Dynamic Visibility -->
+                    <!-- Username/Password for Basic Auth -->
+                    <div class="row" id="basicAuthSection" style="display: none;">
                         <div class="col-md-6 mb-3">
-                            <label for="username" class="form-label">Username (Optional)</label>
+                            <label for="username" class="form-label">Username</label>
                             <input type="text" class="form-control" id="username" name="username" 
                                 placeholder="Enter username for authentication">
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label for="password" class="form-label">Password (Optional)</label>
+                            <label for="password" class="form-label">Password</label>
                             <input type="password" class="form-control" id="password" name="password" 
                                 placeholder="Enter password for authentication">
                         </div>
                     </div>
 
-                    <!-- Token field for Bearer, JWT, API Key authentication -->
+                    <!-- Token field for Base64/Bearer authentication -->
                     <div class="row" id="tokenSection" style="display: none;">
                         <div class="col-md-12 mb-3">
                             <label for="token" class="form-label">Token/API Key</label>
@@ -228,8 +216,9 @@
                         </div>
                     </div>
 
-                    <!-- Additional Headers Section -->
-                    <div class="mb-3">
+                    <!-- Dynamic Content Section - Custom Headers/Payload/ID -->
+                    <!-- Custom Headers for GET -->
+                    <div class="mb-3" id="customHeadersSection" style="display: none;">
                         <label for="customHeaders" class="form-label">Custom Headers (Optional)</label>
                         <textarea class="form-control" id="customHeaders" name="customHeaders" rows="3" 
                             placeholder="Enter custom headers in JSON format: {&quot;Header-Name&quot;: &quot;Header-Value&quot;}"></textarea>
@@ -237,7 +226,7 @@
 
                     <!-- Payload for POST/PUT/PATCH -->
                     <div class="mb-3" id="payloadSection" style="display: none;">
-                        <label for="payload" class="form-label">Request Payload (JSON)</label>
+                        <label for="payload" class="form-label" id="payloadLabel">Request Payload (JSON)</label>
                         <textarea class="form-control" id="payload" name="payload" rows="4" 
                             placeholder='{"key": "value"}'></textarea>
                     </div>
@@ -271,9 +260,15 @@
         <!-- Section 2: Generated Test Cases Display -->
         <div class="card shadow-sm mb-4" id="testCasesSection" style="display: none;">
             <div class="card-header bg-success text-white">
-                <h5 class="mb-0">
-                    <i class="bi bi-2-circle-fill me-2"></i>
-                    Generated Karate Test Cases
+                <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-2-circle-fill me-2"></i>
+                        Generated Karate Test Cases
+                    </span>
+                    <span class="badge bg-light text-dark fs-6" id="testCaseCounter">
+                        <i class="bi bi-clipboard-check me-1"></i>
+                        <span id="testCaseCountNumber">0</span> Generated
+                    </span>
                 </h5>
             </div>
             <div class="card-body">
@@ -360,8 +355,8 @@
                                 <tr>
                                     <th>Test Scenario</th>
                                     <th>Status</th>
-                                    <th>Status Code</th>
-                                    <th>Details</th>
+                                    <th>Actual</th>
+                                    <th>Expectation</th>
                                     <th>View Response</th>
                                 </tr>
                             </thead>
@@ -425,12 +420,11 @@
                 <div class="table-responsive mb-4 test-results-container" id="testResultsContainer">
                     <table class="table table-hover" id="testResultsTable">
                         <thead class="table-dark">
-                        <thead class="table-dark">
                             <tr>
                                 <th>Test Scenario</th>
                                 <th>Status</th>
-                                <th>Status Code</th>
-                                <th>Details</th>
+                                <th>Actual</th>
+                                <th>Expectation</th>
                                 <th>View Response</th>
                             </tr>
                         </thead>
@@ -540,6 +534,14 @@
                              role="progressbar" style="width: 0%" id="loadingProgress"></div>
                     </div>
                     <small class="text-muted mt-2 d-block" id="loadingSubtext">This may take a few moments</small>
+                    
+                    <!-- Stop Button -->
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-danger" id="stopProcessBtn" style="display: none;" aria-label="Stop current process">
+                            <i class="bi bi-stop-fill me-2"></i>
+                            Stop Generation
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
